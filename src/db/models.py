@@ -15,14 +15,10 @@ class Priority(int, Enum):
     LOW = 2
 
 
-class User(SQLModel, table=True):
-
-    __tablename__ = 'users'
-
+class UserNoSecret(SQLModel):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     username: str = Field(unique=True, index=True, max_length=32, min_length=8)
-    password: str = Field(max_length=32, min_length=10)
     enabled: bool = True
     full_name: Optional[str] = Field(default=None, max_length=128)
 
@@ -30,6 +26,13 @@ class User(SQLModel, table=True):
         default_factory=lambda: dt.datetime.now(dt.timezone.utc),
         sa_column=sa.Column(sa.DateTime(timezone=True))
     )
+
+
+class User(UserNoSecret, table=True):
+
+    __tablename__ = 'users'
+
+    password: str = Field(max_length=32, min_length=10)
 
 
 class Item(SQLModel, table=True):

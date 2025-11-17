@@ -13,7 +13,7 @@ def _create_users(
 ) -> None:
     user_1 = User(username='chris.bornmann@pobox.com', password='1111111111', full_name='Chris Bornmann')
     user_2 = User(username='john.smith@pobox.com', password='2222222222')
-    user_3 = User(username='mary.sue@pobox.com', password='33333333334444444444', enabled=False)
+    user_3 = User(username='mary.sue@pobox.com', password='3333333333', enabled=False)
 
     with Session(engine) as session:
         session.add(user_1)

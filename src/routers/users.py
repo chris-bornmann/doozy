@@ -11,7 +11,7 @@ from fastapi_pagination.ext.sqlalchemy import paginate
 
 from db.users import get, get_by_username
 from db.main import get_session
-from db.models import User
+from db.models import User, UserNoSecret
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="users/token")
@@ -24,19 +24,16 @@ router = APIRouter(
 )
 
 
-def fake_decode_token(
+def _fake_decode_token(
     token: str
 ) -> User:
-    breakpoint()
     return get(1)
 
 
-async def get_current_user(
+async def _get_current_user(
     token: Annotated[str, Depends(oauth2_scheme)]
 ) -> User:
-    breakpoint()
-    print('AAAAAAAA')
-    user = fake_decode_token(token)
+    user = _fake_decode_token(token)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -54,8 +51,6 @@ async def get_current_user(
 async def login(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()]
 ) -> dict[str, str]:
-    print('BBBBBBBBBB')
-    breakpoint()
     user = get_by_username(form_data.username)
     if not user:
         raise HTTPException(status_code=400, detail="Incorrect username or password")
@@ -65,29 +60,34 @@ async def login(
     return {"access_token": user.username, "token_type": "bearer"}
 
 
+def _transform_to_user_no_secret(
+    users: List[User]
+) -> List[UserNoSecret]:
+    return [UserNoSecret(**user.dict()) for user in users]
+
+
 @router.get("/")
 async def read_users(
     *,
     session: Session = Depends(get_session),
-) -> Page[User]:
-    return paginate(session, select(User))
+) -> Page[UserNoSecret]:
+    return paginate(session, select(User), transformer=_transform_to_user_no_secret)
 
 
 @router.get('/me')
 async def read_user_me(
-    user: Annotated[User, Depends(get_current_user)]
+    user: Annotated[UserNoSecret, Depends(_get_current_user)]
 ) -> User:
-    return user
+    return UserNoSecret(**user.dict())
 
 
 @router.get("/{id}")
 async def read_user(
     token: Annotated[str, Depends(oauth2_scheme)],
     id: int
-) -> User:
-    breakpoint()
+) -> UserNoSecret:
     user = get(id)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
-    return user
+    return UserNoSecret(**user.dict())
 
