@@ -1,0 +1,17 @@
+[project]
+name = "doozy"
+version = "0.1.0"
+description = "To Do"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi-pagination>=0.15.0",
+    "fastapi[standard]>=0.121.2",
+    "sqlmodel>=0.0.27",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.5",
+    "ty>=0.0.1a26",
+]
