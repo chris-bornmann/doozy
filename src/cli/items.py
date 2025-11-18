@@ -18,6 +18,7 @@ def get(
     table = PrettyTable()
     table.field_names = KEYS
 
+    # import pdb; pdb.set_trace()
     if id is None:
         recs = all()
     else:
