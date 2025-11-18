@@ -60,3 +60,11 @@ uv run ty check
 uv run fastapi dev src/app/main.py
 export PYTHONPATH=/Users/cbb/dev/doozy/server/src
 ```
+
+# Add a CLI
+```
+uv add --dev typer
+uv add --dev prettytable
+
+```
+

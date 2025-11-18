@@ -8,10 +8,12 @@ dependencies = [
     "fastapi-pagination>=0.15.0",
     "fastapi[standard]>=0.121.2",
     "sqlmodel>=0.0.27",
+    "typer>=0.20.0",
 ]
 
 [dependency-groups]
 dev = [
+    "prettytable>=3.17.0",
     "ruff>=0.14.5",
     "ty>=0.0.1a26",
 ]

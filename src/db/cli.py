@@ -21,18 +21,20 @@ def _create_users(
         session.add(user_3)
         session.commit()
 
+        return [user_1, user_2, user_3]
+
 
 def create():
     engine = create_engine("sqlite:///database.db")
     
     SQLModel.metadata.create_all(engine)
 
-    _create_users(engine)
-    
-    item_1 = Item(name='abc 1111111111', description='hi')
-    item_2 = Item(name='def 2222222222')
-    item_3 = Item(name='ghi 3333333333', due_on=datetime.datetime.now(datetime.timezone.utc))
-    item_4 = Item(name='jkl 4444444444', priority=Priority.LOW)
+    users = _create_users(engine)
+
+    item_1 = Item(name='abc 1111111111', description='hi', creator=users[0])
+    item_2 = Item(name='def 2222222222', creator=users[0])
+    item_3 = Item(name='ghi 3333333333', creator=users[1], due_on=datetime.datetime.now(datetime.timezone.utc))
+    item_4 = Item(name='jkl 4444444444', creator=users[2], priority=Priority.LOW)
     
     with Session(engine) as session:
         session.add(item_1)

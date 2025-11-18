@@ -38,5 +38,15 @@ def get_by_username(
     return user
 
 
+def remove(
+    user: User
+) -> None:
+    engine = create_engine("sqlite:///database.db")
+
+    with Session(engine) as session:
+        session.delete(user)
+        session.commit()
+
+
 if __name__ == '__main__':
     print(get(1))

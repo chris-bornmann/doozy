@@ -2,17 +2,19 @@
 import datetime as dt
 from datetime import datetime
 
-from enum import Enum
 from typing import Optional
 
 import sqlalchemy as sa
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, SQLModel, Relationship
 
+from constants import Priority
 
+"""
 class Priority(int, Enum):
     HIGH = 0
     MEDIUM = 1
     LOW = 2
+"""
 
 
 class UserNoSecret(SQLModel):
@@ -34,6 +36,8 @@ class User(UserNoSecret, table=True):
 
     password: str = Field(max_length=32, min_length=10)
 
+    items: list['Item'] = Relationship(back_populates='creator', cascade_delete=True)
+
 
 class Item(SQLModel, table=True):
 
@@ -45,6 +49,9 @@ class Item(SQLModel, table=True):
     description: Optional[str] = Field(default=None, max_length=128)
 
     priority: Optional[Priority] = Field(default=None)
+
+    creator_id: int = Field(foreign_key=User.__tablename__ + '.id')
+    creator: User = Relationship(back_populates='items')
 
     created_on: datetime = Field(
         default_factory=lambda: dt.datetime.now(dt.timezone.utc),
