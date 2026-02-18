@@ -9,13 +9,6 @@ from sqlmodel import Field, SQLModel, Relationship
 
 from constants import Priority
 
-"""
-class Priority(int, Enum):
-    HIGH = 0
-    MEDIUM = 1
-    LOW = 2
-"""
-
 
 class UserNoSecret(SQLModel):
 
