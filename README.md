@@ -47,6 +47,18 @@ uv add "fastapi[standard]"
 uv add fastapi-pagination
 ```
 
+# Add PyJwt and pwdlib (both used for authentication)
+```
+uv add pyjwt
+uv add "pyjwt[crypto]"
+uv add "pwdlib[argon2]"
+```
+
+# Add Pydantic Settings, so that we can use a .env file.
+```
+uv add pydantic_settings
+```
+
 # Add Ruff, and Ty, but only to dev environments.
 ```
 uv add --dev ruff
@@ -68,3 +80,24 @@ uv add --dev prettytable
 
 ```
 
+# Run the app...
+uv run fastapi dev src/app/main.py
+
+## Google OAuth2 login
+
+1. Obtain client credentials from the Google API console and set
+   ``GOOGLE_CLIENT_ID`` and ``GOOGLE_CLIENT_SECRET`` in your environment or
+   in the project's ``.env`` file.
+2. Start the server (see above) and visit ``http://localhost:8000/login/google``
+   in a browser; the application will redirect you to the Google sign‑in page.
+3. After authenticating with Google you'll be redirected back to
+   ``/auth/google`` and receive a JSON object containing
+   ``access_token``/``token_type`` that can be used with the standard
+   ``Authorization: Bearer ...`` header exactly the same as with the
+   username/password ``/token`` endpoint.
+
+For programmatic clients that obtain a Google authorization code separately
+(e.g. mobile apps) you can hit the ``/auth/google`` endpoint directly.
+
+The rest of the API doesn't distinguish between Google accounts and regular
+users; both are issued the same JWTs on successful authentication.
