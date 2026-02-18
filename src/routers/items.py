@@ -3,8 +3,8 @@ from typing import Annotated, TypeVar
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi_pagination import Page
-from sqlmodel import Session
-from sqlalchemy import select
+from sqlmodel import Session, select
+# from sqlalchemy import select
 from fastapi_pagination.ext.sqlalchemy import paginate
 from fastapi_pagination.customization import CustomizedPage, UseParamsFields
 
@@ -38,16 +38,25 @@ CustomPage = CustomizedPage[
 @router.get("/")
 async def read_items(
     *,
+    user: Annotated[User, Depends(get_current_user)],
     session: Session = Depends(get_session),
 ) -> CustomPage[Item]:
-    return paginate(session, select(Item))
+    # query = select(Item).where(Item.creator_id == user.id)
+    # result = session.exec(query)
+    # items = result.all()
+
+    # return paginate(session, select(Item))
+    return paginate(session, select(Item).where(Item.creator_id == user.id))
 
 
 @router.get("/{id}")
 async def read_item(
+    user: Annotated[User, Depends(get_current_user)],
     id: int
 ) -> Item:
-    item = get(id)
+    item: Item = get(id)
+    if item.creator_id != user.id:
+        raise HTTPException(status_code=403, detail="Not the creator")
     if item is None:
         raise HTTPException(status_code=404, detail="Item not found")
     return item

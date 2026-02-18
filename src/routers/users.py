@@ -1,5 +1,5 @@
 
-from typing import Annotated, TypeVar
+from typing import Annotated, TypeVar, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -13,11 +13,7 @@ from app.security import oauth2_scheme
 from db.main import get_session
 from db.models import Item, User, UserNoSecret
 from db.users import get, get_by_username
-
-
-"""
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="users/token")
-"""
+from util.security import decode_token
 
 
 router = APIRouter(
@@ -28,19 +24,40 @@ router = APIRouter(
 )
 
 
+"""
 # !@# It seems like this, and get_current_user should be with the /token
 # endpoint, which currently lives in src/app/main.py.  I don't like it
 # there, but that would be better than here.
 def _fake_decode_token(
     token: str
 ) -> User:
-    return get(1)
+    return get_by_username(token)
+"""
 
 
+# !@# It seems like this, and get_current_user should be with the /token
+# endpoint, which currently lives in src/app/main.py.  I don't like it
+# there, but that would be better than here.
 async def get_current_user(
     token: Annotated[str, Depends(oauth2_scheme)]
 ) -> User:
-    user = _fake_decode_token(token)
+    breakpoint()
+    data = decode_token(token)
+    if data.get('error'):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f'Invalid authentication credentials: {data['error']}',
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    username = data.get('sub')
+    if username is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials: missing sub",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    user = get_by_username(username)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -48,25 +65,15 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    if not user.enabled:
-        raise HTTPException(status_code=400, detail="Inactive user")
-
     return user
 
 
-"""
-@router.post("/token")
-async def login(
-    form_data: Annotated[OAuth2PasswordRequestForm, Depends()]
-) -> dict[str, str]:
-    user = get_by_username(form_data.username)
-    if not user:
-        raise HTTPException(status_code=400, detail="Incorrect username or password")
-    if not form_data.password == user.password:
-        raise HTTPException(status_code=400, detail="Incorrect username or password")
-
-    return {"access_token": user.username, "token_type": "bearer"}
-"""
+async def get_current_active_user(
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> User:
+    if not current_user.enabled:
+        raise HTTPException(status_code=400, detail="Inactive user")
+    return current_user
 
 
 def _transform_to_user_no_secret(
@@ -85,7 +92,7 @@ async def read_users(
 
 @router.get('/me')
 async def read_user_me(
-    user: Annotated[UserNoSecret, Depends(get_current_user)]
+    user: Annotated[UserNoSecret, Depends(get_current_active_user)]
 ) -> UserNoSecret:
     return UserNoSecret(**user.dict())
 
