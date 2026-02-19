@@ -99,5 +99,13 @@ uv run fastapi dev src/app/main.py
 For programmatic clients that obtain a Google authorization code separately
 (e.g. mobile apps) you can hit the ``/auth/google`` endpoint directly.
 
+> **Error responses from `/token`**
+>
+> If a username/password login fails the endpoint now returns a proper
+> `401` status with a JSON body (`{"detail": "Incorrect username or password"}`).
+> The `WWW-Authenticate` header has been removed so that browsers and client
+> pages see the response body instead of surfacing a generic "NetworkError"
+> message.
+
 The rest of the API doesn't distinguish between Google accounts and regular
 users; both are issued the same JWTs on successful authentication.
