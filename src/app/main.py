@@ -106,16 +106,25 @@ async def login(
 """
 
 # existing username/password login
-@app.post("/token")
+@app.post(
+    "/token",
+    response_model=Token,
+    responses={
+        401: {
+            "description": "Authentication failed",
+            "content": {"application/json": {"example": {"detail": "Incorrect username or password"}}},
+        },
+    },
+)
 async def login(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()]
 ) -> Token:
     user = authenticate_user(form_data.username, form_data.password)
     if not user:
+        # omit WWW-Authenticate header so browsers/clients can read JSON body
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
         )
 
     access_token = encode_token(data={"sub": user.username})
