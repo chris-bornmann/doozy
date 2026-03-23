@@ -3,10 +3,10 @@ from typing import Annotated, Any
 
 import uvicorn
 
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi_pagination import add_pagination
 from fastapi.security import OAuth2PasswordRequestForm
-from fastapi import Request
+from fastapi.middleware.cors import CORSMiddleware
 
 from db.main import db_create
 # from db.models import User
@@ -81,6 +81,14 @@ app.add_middleware(TimingMiddleware)
 
 app.include_router(items.router)
 app.include_router(users.router)
+
+# Define allowed origins.  Eventually this should include an actual
+# web hosted site where the GUI is served from.
+origins = [
+    "http://localhost:5173",  # Local dev/test.
+]
+
+app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["*"], allow_headers=["*"])
 
 # Permanent URLs too...
 app.include_router(items.router, prefix="/v1/items", tags=["items", "v1"])
