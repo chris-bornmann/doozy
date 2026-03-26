@@ -14,9 +14,22 @@ dependencies = [
     "typer>=0.20.0",
 ]
 
+[tool.poe.tasks]
+test      = "pytest src/routers/tests/ src/tests/ -v"
+lint      = "ruff check src/"
+format    = "ruff format src/"
+typecheck = "ty check src/"
+run       = "uvicorn app.main:app --reload --app-dir src"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+
 [dependency-groups]
 dev = [
+    "httpx>=0.28.1",
+    "poethepoet>=0.42.1",
     "prettytable>=3.17.0",
+    "pytest>=9.0.2",
     "ruff>=0.14.5",
     "ty>=0.0.1a26",
 ]

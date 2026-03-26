@@ -75,8 +75,6 @@ app = FastAPI(
 )
 
 
-add_pagination(app)
-
 app.add_middleware(LoggingMiddleware, file_name="/tmp/doozy.log")
 app.add_middleware(TimingMiddleware)
 
@@ -94,6 +92,9 @@ app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["*"], a
 # Permanent URLs too...
 app.include_router(items.router, prefix="/v1/items", tags=["items", "v1"])
 app.include_router(users.router, prefix="/v1/users", tags=["users", "v1"])
+
+# Must be called after all routers are included so pagination deps are applied.
+add_pagination(app)
 
 @app.get("/", include_in_schema=False)
 async def root():
