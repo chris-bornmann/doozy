@@ -8,7 +8,7 @@ from fastapi_pagination import add_pagination
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 
-from db.main import db_create
+from db.main import db_create, get_session
 # from db.models import User
 from middleware import LoggingMiddleware, TimingMiddleware
 from routers import items, users
@@ -21,6 +21,7 @@ from app.config import Settings
 import secrets
 from db.users import get_by_username, create_user
 from util.security import get_password_hash
+from sqlmodel import Session
 import httpx
 from fastapi.responses import RedirectResponse
 from urllib.parse import urlencode
@@ -125,9 +126,10 @@ async def login(
     },
 )
 async def login(
-    form_data: Annotated[OAuth2PasswordRequestForm, Depends()]
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+    session: Session = Depends(get_session),
 ) -> Token:
-    user = authenticate_user(form_data.username, form_data.password)
+    user = authenticate_user(session, form_data.username, form_data.password)
     if not user:
         # omit WWW-Authenticate header so browsers/clients can read JSON body
         raise HTTPException(
@@ -163,7 +165,7 @@ async def login_google(request: Request):
 
 
 @app.get("/auth/google")
-async def auth_google(request: Request) -> Token:
+async def auth_google(request: Request, session: Session = Depends(get_session)) -> Token:
     """OAuth callback endpoint that handles Google's authorization code.
 
     The handler:
@@ -209,11 +211,11 @@ async def auth_google(request: Request) -> Token:
     if not email:
         raise HTTPException(status_code=400, detail="Unable to retrieve email")
 
-    user = get_by_username(email)
+    user = get_by_username(session, email)
     if not user:
         random_password = secrets.token_urlsafe(16)
         full_name = user_info.get("name")
-        user = create_user(username=email, password=random_password, full_name=full_name)
+        user = create_user(session, username=email, password=random_password, full_name=full_name)
 
     access_token_inner = encode_token(data={"sub": user.username})
     return Token(access_token=access_token_inner, token_type="bearer")
