@@ -79,7 +79,7 @@ async def get_current_active_user(
 def _transform_to_user_no_secret(
     users: List[User]
 ) -> List[UserNoSecret]:
-    return [UserNoSecret(**user.dict()) for user in users]
+    return [UserNoSecret(**user.model_dump()) for user in users]
 
 
 @router.get("/")
@@ -94,7 +94,7 @@ async def read_users(
 async def read_user_me(
     user: Annotated[UserNoSecret, Depends(get_current_active_user)]
 ) -> UserNoSecret:
-    return UserNoSecret(**user.dict())
+    return UserNoSecret(**user.model_dump())
 
 
 @router.get("/{id}")
@@ -105,7 +105,7 @@ async def read_user(
     user = get(session, id)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
-    return UserNoSecret(**user.dict())
+    return UserNoSecret(**user.model_dump())
 
 
 @router.get('/{id}/items')
