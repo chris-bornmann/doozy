@@ -1,23 +1,23 @@
+
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional, Union
 
 import jwt
+
 from jwt.exceptions import InvalidTokenError, ExpiredSignatureError
 from pwdlib import PasswordHash
 from pydantic import BaseModel
+from sqlmodel import Session
 
+from app.config import Settings
 from db.models import User
 from db.users import get_by_username
 
 
-# Generated with "openssl rand -hex 32".  This should be stored securely,
-# not in the source!
-SECRET_KEY = '2d68d76f35fa6221418afa625442252398639a94b037eade4cf2b19ce7894ad5'
+logger = logging.getLogger(__name__)
 
-ALGORITHM = "HS256"
-
-# This should be configurable.
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
+settings = Settings()
 
 
 class Token(BaseModel):
@@ -47,9 +47,9 @@ def encode_token(
     data: dict[str, Union[datetime, str]],
 ) -> str:
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
 
@@ -57,21 +57,22 @@ def decode_token(
     token: str
 ) -> dict[str, Any]:
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         return payload
     except ExpiredSignatureError:
-        print("Token expired")
+        logger.warning("Token expired")
         return {'error': 'Token expired'}
     except InvalidTokenError:
-        print("Invalid token")
+        logger.warning("Invalid token")
         return {'error': 'Invalid token'}
 
 
 def authenticate_user(
+    session: Session,
     username: str,
-    password: str
+    password: str,
 ) -> Optional[User]:
-    user = get_by_username(username)
+    user = get_by_username(session, username)
     if not user:
         return None
     if not verify_password(password, user.password):

@@ -1,16 +1,15 @@
 
 from sqlmodel import create_engine, Session, SQLModel
 
-# !@# Temporary Kludge!
-from db.cli import create
+from app.config import Settings
 
 
-database_url = "sqlite:///database.db"
-connect_args = {"check_same_thread": False}
-engine = create_engine(database_url, connect_args=connect_args)
+settings = Settings()
+engine = create_engine(settings.DATABASE_URL, connect_args={"check_same_thread": False})
+
 
 def db_create():
-    create()
+    SQLModel.metadata.create_all(engine)
 
 
 def get_session():

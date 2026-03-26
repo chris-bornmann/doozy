@@ -52,35 +52,37 @@ async def read_items(
 @router.get("/{id}")
 async def read_item(
     user: Annotated[User, Depends(get_current_user)],
-    id: int
+    id: int,
+    session: Session = Depends(get_session),
 ) -> Item:
-    item: Item = get(id)
-    if item.creator_id != user.id:
-        raise HTTPException(status_code=403, detail="Not the creator")
+    item: Item | None = get(session, id)
     if item is None:
         raise HTTPException(status_code=404, detail="Item not found")
+    if item.creator_id != user.id:
+        raise HTTPException(status_code=403, detail="Not the creator")
     return item
 
 
 @router.post('/')
 async def post_item(
     user: Annotated[User, Depends(get_current_user)],
-    data: Annotated[FormItem, Depends()]
+    data: Annotated[FormItem, Depends()],
+    session: Session = Depends(get_session),
 ) -> dict[str, int]:
-
-    item_id = add(Item(creator_id=user.id, **data.dict()))
+    item_id = add(session, Item(creator_id=user.id, **data.dict()))
     return {'id': item_id}
 
 
 @router.delete('/{id}')
 async def remove_item(
     user: Annotated[User, Depends(get_current_user)],
-    id: int
+    id: int,
+    session: Session = Depends(get_session),
 ) -> dict[str, bool]:
-    item = get(id)
+    item = get(session, id)
     if item is None:
         raise HTTPException(status_code=404, detail="Item not found")
     if item.creator_id != user.id:
         raise HTTPException(status_code=403, detail="Not the creator")
-    remove(item)
+    remove(session, item)
     return {'ok': True}
