@@ -39,9 +39,9 @@ def _fake_decode_token(
 # endpoint, which currently lives in src/app/main.py.  I don't like it
 # there, but that would be better than here.
 async def get_current_user(
-    token: Annotated[str, Depends(oauth2_scheme)]
+    token: Annotated[str, Depends(oauth2_scheme)],
+    session: Session = Depends(get_session),
 ) -> User:
-    breakpoint()
     data = decode_token(token)
     if data.get('error'):
         raise HTTPException(
@@ -57,7 +57,7 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    user = get_by_username(username)
+    user = get_by_username(session, username)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -99,9 +99,10 @@ async def read_user_me(
 
 @router.get("/{id}")
 async def read_user(
-    id: int
+    id: int,
+    session: Session = Depends(get_session),
 ) -> UserNoSecret:
-    user = get(id)
+    user = get(session, id)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
     return UserNoSecret(**user.dict())
@@ -112,6 +113,4 @@ async def read_user_items(
     id: int,
     session: Session = Depends(get_session)
 ) -> Page[Item]:
-    breakpoint()
-
     return paginate(session, select(Item).where(Item.creator_id == id))

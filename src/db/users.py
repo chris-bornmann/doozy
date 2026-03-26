@@ -1,54 +1,30 @@
 
 from typing import Optional
 
-from sqlmodel import create_engine, Session, select
+from sqlmodel import Session, select
 
 from db.models import User
 
 
-def all(
-) -> list[User]:
-    engine = create_engine("sqlite:///database.db")
-    
-    with Session(engine) as session:
-        res = session.exec(select(User))
-        return res.all()
+def all(session: Session) -> list[User]:
+    return session.exec(select(User)).all()
 
 
-def get(
-    id: int
-) -> Optional[User]:
-    engine = create_engine("sqlite:///database.db")
-    
-    with Session(engine) as session:
-        user: Optional[User] = session.get(User, id)
-
-    return user
+def get(session: Session, id: int) -> Optional[User]:
+    return session.get(User, id)
 
 
-def get_by_username(
-    username: str
-) -> Optional[User]:
-    engine = create_engine('sqlite:///database.db')
-
-    with Session(engine) as session:
-        stmt = select(User).where(User.username == username)
-        user: Optional[User] = session.exec(stmt).first()
-
-    return user
+def get_by_username(session: Session, username: str) -> Optional[User]:
+    return session.exec(select(User).where(User.username == username)).first()
 
 
-def remove(
-    user: User
-) -> None:
-    engine = create_engine("sqlite:///database.db")
-
-    with Session(engine) as session:
-        session.delete(user)
-        session.commit()
+def remove(session: Session, user: User) -> None:
+    session.delete(user)
+    session.commit()
 
 
 def create_user(
+    session: Session,
     username: str,
     password: str,
     full_name: Optional[str] = None,
@@ -60,19 +36,11 @@ def create_user(
     """
     from util.security import get_password_hash
 
-    engine = create_engine("sqlite:///database.db")
-
     user = User(username=username, password=get_password_hash(password))
     if full_name:
         user.full_name = full_name
 
-    with Session(engine) as session:
-        session.add(user)
-        session.commit()
-        session.refresh(user)
-
+    session.add(user)
+    session.commit()
+    session.refresh(user)
     return user
-
-
-if __name__ == '__main__':
-    print(get(1))
