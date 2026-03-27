@@ -27,7 +27,7 @@ class User(UserNoSecret, table=True):
 
     __tablename__ = 'users'
 
-    password: str = Field(max_length=32, min_length=10)
+    password: str = Field(max_length=128, min_length=10)
 
     items: list['Item'] = Relationship(back_populates='creator', cascade_delete=True)
 

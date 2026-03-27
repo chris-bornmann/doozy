@@ -69,7 +69,7 @@ async def post_item(
     data: Annotated[FormItem, Depends()],
     session: Session = Depends(get_session),
 ) -> dict[str, int]:
-    item_id = add(session, Item(creator_id=user.id, **data.dict()))
+    item_id = add(session, Item(creator_id=user.id, **data.model_dump()))
     return {'id': item_id}
 
 
