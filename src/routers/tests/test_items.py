@@ -264,9 +264,9 @@ def test_sort_by_priority(auth_headers, session):
     response = client.get("/items/", params={"sort_by": "priority", "size": 100})
     assert response.status_code == 200
     ids = [i["id"] for i in response.json()["items"]]
-    # Priority is stored as its enum name string, so ORDER BY sorts alphabetically:
-    # HIGH < LOW < MEDIUM
-    assert ids == [high.id, low.id, med.id]
+    # Priority is stored as an integer (HIGH=0, MEDIUM=1, LOW=2), so ORDER BY
+    # sorts numerically: HIGH(0) < MEDIUM(1) < LOW(2)
+    assert ids == [high.id, med.id, low.id]
 
 
 def test_sort_by_due_on(auth_headers, session):
