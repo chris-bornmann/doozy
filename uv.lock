@@ -211,6 +211,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "fastapi", extra = ["standard"] },
     { name = "fastapi-pagination" },
+    { name = "fractional-indexing" },
     { name = "pwdlib", extra = ["argon2"] },
     { name = "pydantic-settings" },
     { name = "pyjwt", extra = ["crypto"] },
@@ -232,6 +233,7 @@ dev = [
 requires-dist = [
     { name = "fastapi", extras = ["standard"], specifier = ">=0.121.2" },
     { name = "fastapi-pagination", specifier = ">=0.15.0" },
+    { name = "fractional-indexing", specifier = ">=0.1.3" },
     { name = "pwdlib", extras = ["argon2"], specifier = ">=0.3.0" },
     { name = "pydantic-settings", specifier = ">=2.13.0" },
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.10.1" },
@@ -337,6 +339,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/bc/db/8a3d097c491ad873574bd7295834ef89e16263ae9104855bbb5ee6d46e47/fastapi_pagination-0.15.0.tar.gz", hash = "sha256:11fe39cbe181ed3c18919b90faf6bfcbe40cb596aa9c52a98bbce85111a29a4f", size = 557472, upload-time = "2025-10-28T19:06:17.732Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/68/91/b835e07234170ba85473227aa107bcf1dc616ff6cb643c0bd9b8225a55f1/fastapi_pagination-0.15.0-py3-none-any.whl", hash = "sha256:ffef937e78903fcb6f356b8407ec1fb0620a06675087fa7d0c4e537a60aa0447", size = 52292, upload-time = "2025-10-28T19:06:16.371Z" },
+]
+
+[[package]]
+name = "fractional-indexing"
+version = "0.1.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "setuptools" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/76/9e/2c14b6dc812defa58e9d515b44b4d126b48338545e14089413df50dadda3/fractional-indexing-0.1.3.tar.gz", hash = "sha256:59e25f441c213bf7f921aa329a6bf3e5930ee8d8852df0b4e930aaf39a39ac5e", size = 7791, upload-time = "2023-08-13T10:03:16.946Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/02/d1/627b86b1eb95ec2c7e012f0036e28a9335f3177f6c7e15047df6ee544bbc/fractional_indexing-0.1.3-py3-none-any.whl", hash = "sha256:389abb9da24add388af3f0146ee4fcf2ebec5816ee728fa672657e394d9a7824", size = 7971, upload-time = "2023-08-13T10:03:15.504Z" },
 ]
 
 [[package]]
@@ -822,6 +836,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/62/26/ff7d93a14a0ec309021dca2fb7c62669d4f6f5654aa1baf60797a16681e0/sentry_sdk-2.44.0.tar.gz", hash = "sha256:5b1fe54dfafa332e900b07dd8f4dfe35753b64e78e7d9b1655a28fd3065e2493", size = 371464, upload-time = "2025-11-11T09:35:56.075Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a8/56/c16bda4d53012c71fa1b588edde603c6b455bc8206bf6de7b83388fcce75/sentry_sdk-2.44.0-py2.py3-none-any.whl", hash = "sha256:9e36a0372b881e8f92fdbff4564764ce6cec4b7f25424d0a3a8d609c9e4651a7", size = 402352, upload-time = "2025-11-11T09:35:54.1Z" },
+]
+
+[[package]]
+name = "setuptools"
+version = "82.0.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/4f/db/cfac1baf10650ab4d1c111714410d2fbb77ac5a616db26775db562c8fab2/setuptools-82.0.1.tar.gz", hash = "sha256:7d872682c5d01cfde07da7bccc7b65469d3dca203318515ada1de5eda35efbf9", size = 1152316, upload-time = "2026-03-09T12:47:17.221Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9d/76/f789f7a86709c6b087c5a2f52f911838cad707cc613162401badc665acfe/setuptools-82.0.1-py3-none-any.whl", hash = "sha256:a59e362652f08dcd477c78bb6e7bd9d80a7995bc73ce773050228a348ce2e5bb", size = 1006223, upload-time = "2026-03-09T12:47:15.026Z" },
 ]
 
 [[package]]

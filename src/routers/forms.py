@@ -12,6 +12,10 @@ class Item(BaseModel):
     priority: Optional[Priority] = Field(default=None)
 
 
+class Reorder(BaseModel):
+    after_id: Optional[int] = None
+
+
 class User(BaseModel):
     
     # Should be using the same constraints as the DB model.
