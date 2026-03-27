@@ -51,7 +51,10 @@ class Item(SQLModel, table=True):
     name: str = Field(max_length=32, min_length=8)
     description: Optional[str] = Field(default=None, max_length=128)
 
-    priority: Optional[Priority] = Field(default=None)
+    priority: Optional[Priority] = Field(
+        default=None,
+        sa_column=sa.Column(sa.Integer(), nullable=True),
+    )
 
     creator_id: int = Field(foreign_key=User.__tablename__ + '.id')
     creator: User = Relationship(back_populates='items')
