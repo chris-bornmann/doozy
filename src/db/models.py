@@ -32,6 +32,16 @@ class User(UserNoSecret, table=True):
     items: list['Item'] = Relationship(back_populates='creator', cascade_delete=True)
 
 
+class UserItemOrder(SQLModel, table=True):
+    """Stores a per-user fractional-index ordering key for each item."""
+
+    __tablename__ = 'user_item_orders'
+
+    user_id: int = Field(foreign_key='users.id', primary_key=True)
+    item_id: int = Field(foreign_key='items.id', primary_key=True)
+    order_key: str = Field(index=True)
+
+
 class Item(SQLModel, table=True):
 
     __tablename__ = 'items'
