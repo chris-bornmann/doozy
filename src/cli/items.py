@@ -37,7 +37,6 @@ def get(
 def remove(
     id: Annotated[int, typer.Argument()]
 ):
-    breakpoint()
     item: Optional[Item] = item_get(id)
     if item is None:
         print('No such item')

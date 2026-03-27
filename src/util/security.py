@@ -61,10 +61,10 @@ def decode_token(
         return payload
     except ExpiredSignatureError:
         logger.warning("Token expired")
-        return {'error': 'Token expired'}
+        return {'error': 'Invalid credentials'}
     except InvalidTokenError:
         logger.warning("Invalid token")
-        return {'error': 'Invalid token'}
+        return {'error': 'Invalid credentials'}
 
 
 def authenticate_user(

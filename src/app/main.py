@@ -87,7 +87,7 @@ origins = [
     "http://localhost:5173",  # Local dev/test.
 ]
 
-app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["GET", "POST", "DELETE"], allow_headers=["Content-Type", "Authorization"])
 
 # Permanent URLs too...
 app.include_router(items.router, prefix="/v1/items", tags=["items", "v1"])
