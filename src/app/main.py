@@ -9,8 +9,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 
 from db.main import db_create, get_session
-# from db.models import User
-from middleware import LoggingMiddleware, TimingMiddleware
+from app.middleware import LoggingMiddleware, TimingMiddleware
 from routers import items, users
 from util.security import authenticate_user, encode_token, Token
 
@@ -100,20 +99,6 @@ add_pagination(app)
 async def root():
     return {"message": "Welcome to the main API!"}
 
-
-"""
-@app.post("/token")
-async def login(
-    form_data: Annotated[OAuth2PasswordRequestForm, Depends()]
-) -> dict[str, str]:
-    user: User = get_by_username(form_data.username)
-    if not user:
-        raise HTTPException(status_code=400, detail="Incorrect username or password")
-    if not form_data.password == user.password:
-        raise HTTPException(status_code=400, detail="Incorrect username or password")
-
-    return {"access_token": user.username, "token_type": "bearer"}
-"""
 
 # existing username/password login
 @app.post(
