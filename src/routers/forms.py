@@ -1,4 +1,5 @@
 
+from datetime import datetime
 from typing import Annotated, Optional
 
 from pydantic import BaseModel, Field
@@ -10,6 +11,7 @@ class Item(BaseModel):
     name: str = Field(max_length=32, min_length=8)
     description: Optional[str] = Field(default=None, max_length=128)
     priority: Optional[Priority] = Field(default=None)
+    due_on: Optional[datetime] = Field(default=None)
 
 
 class Reorder(BaseModel):
