@@ -310,6 +310,48 @@ def test_sort_by_custom_unordered_items_still_returned(auth_headers):
 
 
 # ---------------------------------------------------------------------------
+# GET /items/?reverse=true
+# ---------------------------------------------------------------------------
+
+def test_reverse_created_on(auth_headers):
+    client, _ = auth_headers
+    ids = _create_items(client, "First item aaa", "Second item bb", "Third item cc")
+    response = client.get("/items/", params={"sort_by": "created_on", "reverse": "true", "size": 100})
+    assert response.status_code == 200
+    assert [i["id"] for i in response.json()["items"]] == list(reversed(ids))
+
+
+def test_reverse_priority(auth_headers, session):
+    client, user = auth_headers
+    high = Item(name="High priority item", creator_id=user.id, priority=Priority.HIGH)
+    med  = Item(name="Med priority item!", creator_id=user.id, priority=Priority.MEDIUM)
+    low  = Item(name="Low priority item!", creator_id=user.id, priority=Priority.LOW)
+    session.add_all([low, med, high])
+    session.commit()
+    for item in [low, med, high]:
+        session.refresh(item)
+
+    response = client.get("/items/", params={"sort_by": "priority", "reverse": "true", "size": 100})
+    assert response.status_code == 200
+    ids = [i["id"] for i in response.json()["items"]]
+    assert ids == [low.id, med.id, high.id]
+
+
+def test_reverse_custom(auth_headers):
+    client, _ = auth_headers
+    a, b, c = _create_items(client, "Item alpha aa", "Item beta bbb", "Item gamma cc")
+
+    # Order: b, c, a — reversed should be a, c, b
+    client.post(f"/items/{b}/reorder", json={"after_id": None})
+    client.post(f"/items/{c}/reorder", json={"after_id": b})
+    client.post(f"/items/{a}/reorder", json={"after_id": c})
+
+    response = client.get("/items/", params={"sort_by": "custom", "reverse": "true", "size": 100})
+    assert response.status_code == 200
+    assert [i["id"] for i in response.json()["items"]] == [a, c, b]
+
+
+# ---------------------------------------------------------------------------
 # PATCH /items/{id}
 # ---------------------------------------------------------------------------
 

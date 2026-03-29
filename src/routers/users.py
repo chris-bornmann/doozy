@@ -1,7 +1,7 @@
 
 from typing import Annotated, TypeVar, List
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi_pagination import Page
 
@@ -106,6 +106,26 @@ async def read_user(
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
     return UserNoSecret(**user.model_dump())
+
+
+@router.options('/')
+async def options_users() -> Response:
+    return Response(headers={"Allow": "GET, OPTIONS"}, status_code=204)
+
+
+@router.options('/me')
+async def options_user_me() -> Response:
+    return Response(headers={"Allow": "GET, OPTIONS"}, status_code=204)
+
+
+@router.options('/{id}')
+async def options_user(id: int) -> Response:
+    return Response(headers={"Allow": "GET, OPTIONS"}, status_code=204)
+
+
+@router.options('/{id}/items')
+async def options_user_items(id: int) -> Response:
+    return Response(headers={"Allow": "GET, OPTIONS"}, status_code=204)
 
 
 @router.get('/{id}/items')
