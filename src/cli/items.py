@@ -4,8 +4,9 @@ import typer
 from prettytable import PrettyTable
 from sqlmodel import Session
 
+from constants import Priority
 from db.item_orders import move_item
-from db.items import all, get as item_get, remove as item_remove
+from db.items import all, get as item_get, remove as item_remove, update as item_update
 from db.main import engine
 from db.models import Item
 
@@ -47,6 +48,36 @@ def remove(
             raise typer.Exit(code=1)
 
         item_remove(session, item)
+
+
+@app.command('update')
+def update(
+    id: Annotated[int, typer.Argument(help="ID of the item to update")],
+    name:        Annotated[Optional[str],      typer.Option(help="New name")] = None,
+    description: Annotated[Optional[str],      typer.Option(help="New description")] = None,
+    priority:    Annotated[Optional[Priority], typer.Option(help="New priority")] = None,
+    due_on:      Annotated[Optional[str],      typer.Option(help="New due date (ISO 8601, e.g. 2026-04-01T12:00:00Z)")] = None,
+):
+    """Update one or more fields on an item."""
+    changes: dict = {}
+    if name        is not None: changes['name']        = name
+    if description is not None: changes['description'] = description
+    if priority    is not None: changes['priority']    = priority
+    if due_on      is not None:
+        from datetime import datetime
+        changes['due_on'] = datetime.fromisoformat(due_on)
+
+    if not changes:
+        print('Nothing to update — supply at least one option.')
+        raise typer.Exit(code=1)
+
+    with Session(engine) as session:
+        item: Optional[Item] = item_get(session, id)
+        if item is None:
+            print('No such item')
+            raise typer.Exit(code=1)
+        item_update(session, item, changes)
+        print(f'Item {id} updated.')
 
 
 @app.command('reorder')
