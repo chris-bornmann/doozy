@@ -21,6 +21,15 @@ def get(session: Session, id: int) -> Optional[Item]:
     return session.get(Item, id)
 
 
+def update(session: Session, item: Item, changes: dict) -> Item:
+    for field, value in changes.items():
+        setattr(item, field, value)
+    session.add(item)
+    session.commit()
+    session.refresh(item)
+    return item
+
+
 def remove(session: Session, item: Item) -> None:
     session.delete(item)
     session.commit()

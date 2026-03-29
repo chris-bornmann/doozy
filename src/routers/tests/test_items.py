@@ -307,3 +307,98 @@ def test_sort_by_custom_unordered_items_still_returned(auth_headers):
     response = client.get("/items/", params={"sort_by": "custom", "size": 100})
     assert response.status_code == 200
     assert set(i["id"] for i in response.json()["items"]) == set(ids)
+
+
+# ---------------------------------------------------------------------------
+# PATCH /items/{id}
+# ---------------------------------------------------------------------------
+
+def test_patch_item_name(auth_headers):
+    client, _ = auth_headers
+    item_id = client.post("/items/", params={"name": "Original name aa"}).json()["id"]
+    response = client.patch(f"/items/{item_id}", json={"name": "Updated name aa"})
+    assert response.status_code == 200
+    assert response.json()["name"] == "Updated name aa"
+
+
+def test_patch_item_description(auth_headers):
+    client, _ = auth_headers
+    item_id = client.post("/items/", params={"name": "Some item namebb"}).json()["id"]
+    response = client.patch(f"/items/{item_id}", json={"description": "A new description"})
+    assert response.status_code == 200
+    assert response.json()["description"] == "A new description"
+
+
+def test_patch_item_priority(auth_headers):
+    client, _ = auth_headers
+    item_id = client.post("/items/", params={"name": "Some item namecc"}).json()["id"]
+    response = client.patch(f"/items/{item_id}", json={"priority": Priority.HIGH})
+    assert response.status_code == 200
+    assert response.json()["priority"] == Priority.HIGH
+
+
+def test_patch_item_due_on(auth_headers):
+    client, _ = auth_headers
+    item_id = client.post("/items/", params={"name": "Some item namedd"}).json()["id"]
+    due = "2026-06-01T12:00:00Z"
+    response = client.patch(f"/items/{item_id}", json={"due_on": due})
+    assert response.status_code == 200
+    assert response.json()["due_on"] is not None
+
+
+def test_patch_item_multiple_fields(auth_headers):
+    client, _ = auth_headers
+    item_id = client.post("/items/", params={"name": "Multi field itemee"}).json()["id"]
+    response = client.patch(f"/items/{item_id}", json={
+        "name": "Updated multi itemee",
+        "description": "Updated desc",
+        "priority": Priority.LOW,
+    })
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "Updated multi itemee"
+    assert data["description"] == "Updated desc"
+    assert data["priority"] == Priority.LOW
+
+
+def test_patch_item_only_updates_given_fields(auth_headers):
+    """Fields omitted from the body must not be changed."""
+    client, _ = auth_headers
+    item_id = client.post("/items/", params={"name": "Stable name itemff", "description": "Keep this"}).json()["id"]
+    client.patch(f"/items/{item_id}", json={"priority": Priority.HIGH})
+    data = client.get(f"/items/{item_id}").json()
+    assert data["description"] == "Keep this"
+
+
+def test_patch_item_clears_nullable_field(auth_headers):
+    """Explicitly passing null for a nullable field should clear it."""
+    client, _ = auth_headers
+    item_id = client.post("/items/", params={"name": "Has description gg", "description": "To be cleared"}).json()["id"]
+    client.patch(f"/items/{item_id}", json={"description": None})
+    data = client.get(f"/items/{item_id}").json()
+    assert data["description"] is None
+
+
+def test_patch_item_name_too_short(auth_headers):
+    client, _ = auth_headers
+    item_id = client.post("/items/", params={"name": "Valid name itemhh"}).json()["id"]
+    assert client.patch(f"/items/{item_id}", json={"name": "short"}).status_code == 422
+
+
+def test_patch_item_not_found(auth_headers):
+    client, _ = auth_headers
+    assert client.patch("/items/9999", json={"name": "Does not matter!"}).status_code == 404
+
+
+def test_patch_item_wrong_owner_is_forbidden(auth_headers, session):
+    client, _ = auth_headers
+    other = create_user(session, username="otheruser7", password="password1234")
+    item = Item(name="Belongs to other!!", creator_id=other.id)
+    session.add(item)
+    session.commit()
+    session.refresh(item)
+    assert client.patch(f"/items/{item.id}", json={"name": "Trying to steal!"}).status_code == 403
+
+
+def test_patch_item_requires_auth(client):
+    assert client.patch("/items/1", json={"name": "No auth attempt!"}).status_code == 401
