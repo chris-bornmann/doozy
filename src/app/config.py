@@ -12,4 +12,6 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_ID: str
     GOOGLE_CLIENT_SECRET: str
 
+    GUI_URL: str = "http://localhost:5173/"
+
     model_config: SettingsConfigDict = SettingsConfigDict(env_file=find_dotenv())

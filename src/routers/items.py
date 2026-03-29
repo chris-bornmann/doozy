@@ -2,9 +2,9 @@
 from enum import Enum
 from typing import Annotated, TypeVar
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi_pagination import Page
-from sqlalchemy import and_
+from sqlalchemy import and_, asc, desc, nulls_last, nullsfirst
 from sqlmodel import Session, select
 from fastapi_pagination.ext.sqlalchemy import paginate
 from fastapi_pagination.customization import CustomizedPage, UseParamsFields
@@ -57,8 +57,11 @@ async def read_items(
     user: Annotated[User, Depends(get_current_user)],
     session: Session = Depends(get_session),
     sort_by: SortBy = Query(default=SortBy.created_on),
+    reverse: bool = Query(default=False),
 ) -> CustomPage[Item]:
     if sort_by == SortBy.custom:
+        col = UserItemOrder.order_key
+        order_expr = desc(col) if reverse else asc(col)
         stmt = (
             select(Item)
             .outerjoin(
@@ -66,13 +69,15 @@ async def read_items(
                 and_(UserItemOrder.item_id == Item.id, UserItemOrder.user_id == user.id),
             )
             .where(Item.creator_id == user.id)
-            .order_by(UserItemOrder.order_key)
+            .order_by(order_expr)
         )
     else:
+        col = _SORT_COLUMNS[sort_by]
+        order_expr = nullsfirst(desc(col)) if reverse else nulls_last(asc(col))
         stmt = (
             select(Item)
             .where(Item.creator_id == user.id)
-            .order_by(_SORT_COLUMNS[sort_by])
+            .order_by(order_expr)
         )
     return paginate(session, stmt)
 
@@ -138,6 +143,21 @@ async def reorder_item(
 
     entry = move_item(session, user.id, id, data.after_id)
     return {'order_key': entry.order_key}
+
+
+@router.options('/')
+async def options_items() -> Response:
+    return Response(headers={"Allow": "GET, POST, OPTIONS"}, status_code=204)
+
+
+@router.options('/{id}')
+async def options_item(id: int) -> Response:
+    return Response(headers={"Allow": "GET, PATCH, DELETE, OPTIONS"}, status_code=204)
+
+
+@router.options('/{id}/reorder')
+async def options_item_reorder(id: int) -> Response:
+    return Response(headers={"Allow": "POST, OPTIONS"}, status_code=204)
 
 
 @router.delete('/{id}')
