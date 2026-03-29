@@ -22,7 +22,9 @@ lint      = "ruff check src/"
 format    = "ruff format src/"
 typecheck = "ty check src/"
 run       = "uvicorn app.main:app --reload --app-dir src"
-cli       = "python -m cli.main"
+[tool.poe.tasks.cli]
+cmd = "python -m cli.main"
+env = {PYTHONPATH = "src"}
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
