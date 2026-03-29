@@ -86,7 +86,7 @@ origins = [
     "http://localhost:5173",  # Local dev/test.
 ]
 
-app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["GET", "POST", "DELETE"], allow_headers=["Content-Type", "Authorization"])
+app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"], allow_headers=["Content-Type", "Authorization"])
 
 # Permanent URLs too...
 app.include_router(items.router, prefix="/v1/items", tags=["items", "v1"])
@@ -151,7 +151,7 @@ async def login_google(request: Request):
 
 
 @app.get("/auth/google")
-async def auth_google(request: Request, session: Session = Depends(get_session)) -> Token:
+async def auth_google(request: Request, session: Session = Depends(get_session)):
     """OAuth callback endpoint that handles Google's authorization code.
 
     The handler:
@@ -159,6 +159,7 @@ async def auth_google(request: Request, session: Session = Depends(get_session))
     2. exchanges it for an access token at Google's token endpoint
     3. fetches the user's profile from the OpenID Connect userinfo API
     4. creates/looks up a local ``User`` record and issues our own JWT
+    5. redirects to the GUI with the token in the URL fragment
     """
     code = request.query_params.get("code")
     if not code:
@@ -204,7 +205,8 @@ async def auth_google(request: Request, session: Session = Depends(get_session))
         user = create_user(session, username=email, password=random_password, full_name=full_name)
 
     access_token_inner = encode_token(data={"sub": user.username})
-    return Token(access_token=access_token_inner, token_type="bearer")
+    gui_url = f"{settings.GUI_URL}#access_token={access_token_inner}&token_type=bearer"
+    return RedirectResponse(gui_url)
 
 
 if __name__ == "__main__":

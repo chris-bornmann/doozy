@@ -307,3 +307,140 @@ def test_sort_by_custom_unordered_items_still_returned(auth_headers):
     response = client.get("/items/", params={"sort_by": "custom", "size": 100})
     assert response.status_code == 200
     assert set(i["id"] for i in response.json()["items"]) == set(ids)
+
+
+# ---------------------------------------------------------------------------
+# GET /items/?reverse=true
+# ---------------------------------------------------------------------------
+
+def test_reverse_created_on(auth_headers):
+    client, _ = auth_headers
+    ids = _create_items(client, "First item aaa", "Second item bb", "Third item cc")
+    response = client.get("/items/", params={"sort_by": "created_on", "reverse": "true", "size": 100})
+    assert response.status_code == 200
+    assert [i["id"] for i in response.json()["items"]] == list(reversed(ids))
+
+
+def test_reverse_priority(auth_headers, session):
+    client, user = auth_headers
+    high = Item(name="High priority item", creator_id=user.id, priority=Priority.HIGH)
+    med  = Item(name="Med priority item!", creator_id=user.id, priority=Priority.MEDIUM)
+    low  = Item(name="Low priority item!", creator_id=user.id, priority=Priority.LOW)
+    session.add_all([low, med, high])
+    session.commit()
+    for item in [low, med, high]:
+        session.refresh(item)
+
+    response = client.get("/items/", params={"sort_by": "priority", "reverse": "true", "size": 100})
+    assert response.status_code == 200
+    ids = [i["id"] for i in response.json()["items"]]
+    assert ids == [low.id, med.id, high.id]
+
+
+def test_reverse_custom(auth_headers):
+    client, _ = auth_headers
+    a, b, c = _create_items(client, "Item alpha aa", "Item beta bbb", "Item gamma cc")
+
+    # Order: b, c, a — reversed should be a, c, b
+    client.post(f"/items/{b}/reorder", json={"after_id": None})
+    client.post(f"/items/{c}/reorder", json={"after_id": b})
+    client.post(f"/items/{a}/reorder", json={"after_id": c})
+
+    response = client.get("/items/", params={"sort_by": "custom", "reverse": "true", "size": 100})
+    assert response.status_code == 200
+    assert [i["id"] for i in response.json()["items"]] == [a, c, b]
+
+
+# ---------------------------------------------------------------------------
+# PATCH /items/{id}
+# ---------------------------------------------------------------------------
+
+def test_patch_item_name(auth_headers):
+    client, _ = auth_headers
+    item_id = client.post("/items/", params={"name": "Original name aa"}).json()["id"]
+    response = client.patch(f"/items/{item_id}", json={"name": "Updated name aa"})
+    assert response.status_code == 200
+    assert response.json()["name"] == "Updated name aa"
+
+
+def test_patch_item_description(auth_headers):
+    client, _ = auth_headers
+    item_id = client.post("/items/", params={"name": "Some item namebb"}).json()["id"]
+    response = client.patch(f"/items/{item_id}", json={"description": "A new description"})
+    assert response.status_code == 200
+    assert response.json()["description"] == "A new description"
+
+
+def test_patch_item_priority(auth_headers):
+    client, _ = auth_headers
+    item_id = client.post("/items/", params={"name": "Some item namecc"}).json()["id"]
+    response = client.patch(f"/items/{item_id}", json={"priority": Priority.HIGH})
+    assert response.status_code == 200
+    assert response.json()["priority"] == Priority.HIGH
+
+
+def test_patch_item_due_on(auth_headers):
+    client, _ = auth_headers
+    item_id = client.post("/items/", params={"name": "Some item namedd"}).json()["id"]
+    due = "2026-06-01T12:00:00Z"
+    response = client.patch(f"/items/{item_id}", json={"due_on": due})
+    assert response.status_code == 200
+    assert response.json()["due_on"] is not None
+
+
+def test_patch_item_multiple_fields(auth_headers):
+    client, _ = auth_headers
+    item_id = client.post("/items/", params={"name": "Multi field itemee"}).json()["id"]
+    response = client.patch(f"/items/{item_id}", json={
+        "name": "Updated multi itemee",
+        "description": "Updated desc",
+        "priority": Priority.LOW,
+    })
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "Updated multi itemee"
+    assert data["description"] == "Updated desc"
+    assert data["priority"] == Priority.LOW
+
+
+def test_patch_item_only_updates_given_fields(auth_headers):
+    """Fields omitted from the body must not be changed."""
+    client, _ = auth_headers
+    item_id = client.post("/items/", params={"name": "Stable name itemff", "description": "Keep this"}).json()["id"]
+    client.patch(f"/items/{item_id}", json={"priority": Priority.HIGH})
+    data = client.get(f"/items/{item_id}").json()
+    assert data["description"] == "Keep this"
+
+
+def test_patch_item_clears_nullable_field(auth_headers):
+    """Explicitly passing null for a nullable field should clear it."""
+    client, _ = auth_headers
+    item_id = client.post("/items/", params={"name": "Has description gg", "description": "To be cleared"}).json()["id"]
+    client.patch(f"/items/{item_id}", json={"description": None})
+    data = client.get(f"/items/{item_id}").json()
+    assert data["description"] is None
+
+
+def test_patch_item_name_too_short(auth_headers):
+    client, _ = auth_headers
+    item_id = client.post("/items/", params={"name": "Valid name itemhh"}).json()["id"]
+    assert client.patch(f"/items/{item_id}", json={"name": "short"}).status_code == 422
+
+
+def test_patch_item_not_found(auth_headers):
+    client, _ = auth_headers
+    assert client.patch("/items/9999", json={"name": "Does not matter!"}).status_code == 404
+
+
+def test_patch_item_wrong_owner_is_forbidden(auth_headers, session):
+    client, _ = auth_headers
+    other = create_user(session, username="otheruser7", password="password1234")
+    item = Item(name="Belongs to other!!", creator_id=other.id)
+    session.add(item)
+    session.commit()
+    session.refresh(item)
+    assert client.patch(f"/items/{item.id}", json={"name": "Trying to steal!"}).status_code == 403
+
+
+def test_patch_item_requires_auth(client):
+    assert client.patch("/items/1", json={"name": "No auth attempt!"}).status_code == 401

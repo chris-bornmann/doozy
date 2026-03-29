@@ -2,19 +2,19 @@
 from enum import Enum
 from typing import Annotated, TypeVar
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi_pagination import Page
-from sqlalchemy import and_
+from sqlalchemy import and_, asc, desc, nulls_last, nullsfirst
 from sqlmodel import Session, select
 from fastapi_pagination.ext.sqlalchemy import paginate
 from fastapi_pagination.customization import CustomizedPage, UseParamsFields
 
 from app.security import oauth2_scheme
 from db.item_orders import move_item
-from db.items import add, get, remove
+from db.items import add, get, remove, update
 from db.main import get_session
 from db.models import Item, User, UserItemOrder
-from routers.forms import Item as FormItem, Reorder
+from routers.forms import Item as FormItem, PatchItem, Reorder
 from routers.users import get_current_user
 
 
@@ -57,8 +57,11 @@ async def read_items(
     user: Annotated[User, Depends(get_current_user)],
     session: Session = Depends(get_session),
     sort_by: SortBy = Query(default=SortBy.created_on),
+    reverse: bool = Query(default=False),
 ) -> CustomPage[Item]:
     if sort_by == SortBy.custom:
+        col = UserItemOrder.order_key
+        order_expr = desc(col) if reverse else asc(col)
         stmt = (
             select(Item)
             .outerjoin(
@@ -66,13 +69,15 @@ async def read_items(
                 and_(UserItemOrder.item_id == Item.id, UserItemOrder.user_id == user.id),
             )
             .where(Item.creator_id == user.id)
-            .order_by(UserItemOrder.order_key)
+            .order_by(order_expr)
         )
     else:
+        col = _SORT_COLUMNS[sort_by]
+        order_expr = nullsfirst(desc(col)) if reverse else nulls_last(asc(col))
         stmt = (
             select(Item)
             .where(Item.creator_id == user.id)
-            .order_by(_SORT_COLUMNS[sort_by])
+            .order_by(order_expr)
         )
     return paginate(session, stmt)
 
@@ -101,6 +106,21 @@ async def post_item(
     return {'id': item_id}
 
 
+@router.patch('/{id}')
+async def patch_item(
+    user: Annotated[User, Depends(get_current_user)],
+    id: int,
+    data: PatchItem,
+    session: Session = Depends(get_session),
+) -> Item:
+    item = get(session, id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Item not found")
+    if item.creator_id != user.id:
+        raise HTTPException(status_code=403, detail="Not the creator")
+    return update(session, item, data.model_dump(include=data.model_fields_set))
+
+
 @router.post('/{id}/reorder')
 async def reorder_item(
     user: Annotated[User, Depends(get_current_user)],
@@ -123,6 +143,21 @@ async def reorder_item(
 
     entry = move_item(session, user.id, id, data.after_id)
     return {'order_key': entry.order_key}
+
+
+@router.options('/')
+async def options_items() -> Response:
+    return Response(headers={"Allow": "GET, POST, OPTIONS"}, status_code=204)
+
+
+@router.options('/{id}')
+async def options_item(id: int) -> Response:
+    return Response(headers={"Allow": "GET, PATCH, DELETE, OPTIONS"}, status_code=204)
+
+
+@router.options('/{id}/reorder')
+async def options_item_reorder(id: int) -> Response:
+    return Response(headers={"Allow": "POST, OPTIONS"}, status_code=204)
 
 
 @router.delete('/{id}')
