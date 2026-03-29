@@ -14,6 +14,13 @@ class Item(BaseModel):
     due_on: Optional[datetime] = Field(default=None)
 
 
+class PatchItem(BaseModel):
+    name: Optional[str] = Field(default=None, max_length=32, min_length=8)
+    description: Optional[str] = Field(default=None, max_length=128)
+    due_on: Optional[datetime] = Field(default=None)
+    priority: Optional[Priority] = Field(default=None)
+
+
 class Reorder(BaseModel):
     after_id: Optional[int] = None
 
