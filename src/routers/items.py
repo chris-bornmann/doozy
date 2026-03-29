@@ -11,10 +11,10 @@ from fastapi_pagination.customization import CustomizedPage, UseParamsFields
 
 from app.security import oauth2_scheme
 from db.item_orders import move_item
-from db.items import add, get, remove
+from db.items import add, get, remove, update
 from db.main import get_session
 from db.models import Item, User, UserItemOrder
-from routers.forms import Item as FormItem, Reorder
+from routers.forms import Item as FormItem, PatchItem, Reorder
 from routers.users import get_current_user
 
 
@@ -99,6 +99,21 @@ async def post_item(
 ) -> dict[str, int]:
     item_id = add(session, Item(creator_id=user.id, **data.model_dump()))
     return {'id': item_id}
+
+
+@router.patch('/{id}')
+async def patch_item(
+    user: Annotated[User, Depends(get_current_user)],
+    id: int,
+    data: PatchItem,
+    session: Session = Depends(get_session),
+) -> Item:
+    item = get(session, id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Item not found")
+    if item.creator_id != user.id:
+        raise HTTPException(status_code=403, detail="Not the creator")
+    return update(session, item, data.model_dump(include=data.model_fields_set))
 
 
 @router.post('/{id}/reorder')

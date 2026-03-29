@@ -10,6 +10,22 @@ from sqlmodel import Field, SQLModel, Relationship
 from constants import Priority
 
 
+class PriorityType(sa.TypeDecorator):
+    """Stores Priority as an integer; returns a Priority enum on load."""
+    impl = sa.Integer
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        return int(value)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        return Priority(value)
+
+
 class UserNoSecret(SQLModel):
 
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -53,7 +69,7 @@ class Item(SQLModel, table=True):
 
     priority: Optional[Priority] = Field(
         default=None,
-        sa_column=sa.Column(sa.Integer(), nullable=True),
+        sa_column=sa.Column(PriorityType(), nullable=True),
     )
 
     creator_id: int = Field(foreign_key=User.__tablename__ + '.id')
