@@ -1,3 +1,5 @@
+from typing import Optional
+
 from dotenv import find_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -13,5 +15,7 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_SECRET: str
 
     GUI_URL: str = "http://localhost:5173/"
+
+    ANTHROPIC_API_KEY: Optional[str] = None
 
     model_config: SettingsConfigDict = SettingsConfigDict(env_file=find_dotenv())
