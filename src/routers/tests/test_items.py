@@ -2,7 +2,7 @@ import datetime as dt
 
 from sqlmodel import Session
 
-from constants import Priority
+from constants import Priority, State
 from db.models import Item
 from db.users import create_user
 
@@ -444,3 +444,48 @@ def test_patch_item_wrong_owner_is_forbidden(auth_headers, session):
 
 def test_patch_item_requires_auth(client):
     assert client.patch("/items/1", json={"name": "No auth attempt!"}).status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# State field
+# ---------------------------------------------------------------------------
+
+def test_new_item_has_new_state(auth_headers):
+    client, _ = auth_headers
+    item_id = client.post("/items/", params={"name": "Check default state!"}).json()["id"]
+    data = client.get(f"/items/{item_id}").json()
+    assert data["state"] == State.NEW
+
+
+def test_patch_item_state(auth_headers):
+    client, _ = auth_headers
+    item_id = client.post("/items/", params={"name": "Change state itemaa"}).json()["id"]
+    response = client.patch(f"/items/{item_id}", json={"state": State.IN_PROGRESS})
+    assert response.status_code == 200
+    assert response.json()["state"] == State.IN_PROGRESS
+
+
+def test_patch_item_state_all_values(auth_headers):
+    client, _ = auth_headers
+    item_id = client.post("/items/", params={"name": "All states item bb"}).json()["id"]
+    for state in State:
+        response = client.patch(f"/items/{item_id}", json={"state": state})
+        assert response.status_code == 200
+        assert response.json()["state"] == state
+
+
+def test_sort_by_state(auth_headers, session):
+    client, user = auth_headers
+    done      = Item(name="Done item aaaaaaaa", creator_id=user.id, state=State.DONE)
+    new       = Item(name="New item aaaaaaaaa", creator_id=user.id, state=State.NEW)
+    cancelled = Item(name="Cancelled item aaa", creator_id=user.id, state=State.CANCELLED)
+    in_prog   = Item(name="In progress itemaa", creator_id=user.id, state=State.IN_PROGRESS)
+    session.add_all([done, cancelled, in_prog, new])
+    session.commit()
+    for item in [done, new, cancelled, in_prog]:
+        session.refresh(item)
+
+    response = client.get("/items/", params={"sort_by": "state", "size": 100})
+    assert response.status_code == 200
+    ids = [i["id"] for i in response.json()["items"]]
+    assert ids == [new.id, in_prog.id, done.id, cancelled.id]

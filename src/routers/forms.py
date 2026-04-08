@@ -4,7 +4,7 @@ from typing import Annotated, Optional
 
 from pydantic import BaseModel, Field
 
-from constants import Priority
+from constants import Priority, State
 
 
 class Item(BaseModel):
@@ -19,6 +19,7 @@ class PatchItem(BaseModel):
     description: Optional[str] = Field(default=None, max_length=128)
     due_on: Optional[datetime] = Field(default=None)
     priority: Optional[Priority] = Field(default=None)
+    state: Optional[State] = Field(default=None)
 
 
 class Reorder(BaseModel):
