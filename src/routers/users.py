@@ -9,11 +9,16 @@ from sqlmodel import Session
 from sqlalchemy import select
 from fastapi_pagination.ext.sqlalchemy import paginate
 
+from app.config import Settings
 from app.security import oauth2_scheme
+from constants import UserState
 from db.main import get_session
 from db.models import Item, User, UserNoSecret
 from db.users import get, get_by_username
-from util.security import decode_token
+from db.verification import create_verification
+from routers.forms import User as UserForm
+from routers.verification import send_verification_email
+from util.security import decode_token, get_password_hash
 
 
 router = APIRouter(
@@ -21,6 +26,13 @@ router = APIRouter(
     tags=["users"],
     dependencies=[Depends(oauth2_scheme)],
     responses={404: {"description": "Not found"}},
+)
+
+# Public router — no auth required (e.g. registration)
+public_router = APIRouter(
+    prefix="/users",
+    tags=["users"],
+    responses={409: {"description": "Conflict"}},
 )
 
 
@@ -110,7 +122,7 @@ async def read_user(
 
 @router.options('/')
 async def options_users() -> Response:
-    return Response(headers={"Allow": "GET, OPTIONS"}, status_code=204)
+    return Response(headers={"Allow": "GET, POST, OPTIONS"}, status_code=204)
 
 
 @router.options('/me')
@@ -126,6 +138,33 @@ async def options_user(id: int) -> Response:
 @router.options('/{id}/items')
 async def options_user_items(id: int) -> Response:
     return Response(headers={"Allow": "GET, OPTIONS"}, status_code=204)
+
+
+@public_router.post('/')
+async def create_user(
+    data: UserForm,
+    session: Session = Depends(get_session),
+) -> UserNoSecret:
+    if get_by_username(session, data.username):
+        raise HTTPException(status_code=409, detail="Username already exists")
+    user = User(
+        username=data.username,
+        full_name=data.full_name,
+        password=get_password_hash(data.password),
+        state=UserState.NEW,
+    )
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+
+    settings = Settings()
+    raw_token = create_verification(session, user.id, settings.VERIFICATION_EXPIRE_MINUTES)
+    try:
+        await send_verification_email(user, raw_token)
+    except Exception:
+        pass  # email failure is non-fatal; user can request a resend later
+
+    return UserNoSecret(**user.model_dump())
 
 
 @router.get('/{id}/items')
