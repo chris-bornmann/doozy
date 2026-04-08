@@ -4,7 +4,7 @@ from typing import Annotated, TypeVar
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi_pagination import Page
-from sqlalchemy import and_, asc, desc, nulls_last, nullsfirst
+from sqlalchemy import and_, asc, delete, desc, nulls_last, nullsfirst
 from sqlmodel import Session, select
 from fastapi_pagination.ext.sqlalchemy import paginate
 from fastapi_pagination.customization import CustomizedPage, UseParamsFields
@@ -13,7 +13,7 @@ from app.security import oauth2_scheme
 from db.item_orders import move_item
 from db.items import add, get, remove, update
 from db.main import get_session
-from db.models import Item, User, UserItemOrder
+from db.models import Item, ItemTag, User, UserItemOrder
 from routers.forms import Item as FormItem, PatchItem, Reorder
 from routers.users import get_current_user
 
@@ -173,5 +173,6 @@ async def remove_item(
         raise HTTPException(status_code=404, detail="Item not found")
     if item.creator_id != user.id:
         raise HTTPException(status_code=403, detail="Not the creator")
+    session.exec(delete(ItemTag).where(ItemTag.item_id == id))
     remove(session, item)
     return {'ok': True}

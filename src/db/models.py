@@ -101,6 +101,23 @@ class UserVerification(SQLModel, table=True):
     used: bool = Field(default=False)
 
 
+class Tag(SQLModel, table=True):
+
+    __tablename__ = 'tags'
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str = Field(max_length=16, unique=True, index=True)
+
+
+class ItemTag(SQLModel, table=True):
+    """Junction table linking items to tags."""
+
+    __tablename__ = 'item_tags'
+
+    item_id: int = Field(foreign_key='items.id', primary_key=True)
+    tag_id: int = Field(foreign_key='tags.id', primary_key=True)
+
+
 class UserItemOrder(SQLModel, table=True):
     """Stores a per-user fractional-index ordering key for each item."""
 
