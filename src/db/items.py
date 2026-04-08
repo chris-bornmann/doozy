@@ -21,6 +21,11 @@ def get(session: Session, id: int) -> Optional[Item]:
     return session.get(Item, id)
 
 
+def find(session: Session, name: str) -> Optional[Item]:
+    stmt = select(Item).where(Item.name == name)
+    return session.exec(stmt).first()
+
+
 def update(session: Session, item: Item, changes: dict) -> Item:
     for field, value in changes.items():
         setattr(item, field, value)
