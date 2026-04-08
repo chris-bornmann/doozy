@@ -5,6 +5,7 @@ description = "To Do"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "anthropic>=0.91.0",
     "fastapi-pagination>=0.15.0",
     "fastapi[standard]>=0.121.2",
     "fractional-indexing>=0.1.3",
