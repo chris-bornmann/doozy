@@ -1,11 +1,13 @@
 import datetime
+import random
+import string
 from typing import Optional
 
 import typer
 from sqlmodel import Session, SQLModel
 
 from db.main import engine
-from db.models import Item, Priority, User
+from db.models import Item, Priority, State, User
 from util.security import get_password_hash
 
 
@@ -59,6 +61,78 @@ def _create_items(session: Session, users: list[User]) -> None:
             print(item_3)
             session.refresh(item_3)
             print(item_3)
+
+
+_ADJECTIVES = [
+    "quick", "lazy", "bright", "dark", "loud", "silent", "smooth", "rough",
+    "ancient", "modern", "frozen", "burning", "broken", "shiny", "dusty",
+    "hidden", "open", "closed", "empty", "full",
+]
+
+_NOUNS = [
+    "report", "meeting", "deadline", "invoice", "review", "update", "audit",
+    "proposal", "ticket", "release", "deployment", "migration", "refactor",
+    "demo", "sprint", "backlog", "hotfix", "feature", "document", "sketch",
+]
+
+_DESCRIPTIONS = [
+    "Needs urgent attention",
+    "Low risk, can wait",
+    "Blocked by external dependency",
+    "Waiting for sign-off",
+    "In review with stakeholders",
+    "Ready to start",
+    "Requires further investigation",
+    "Part of Q2 objectives",
+    "Customer-facing impact",
+    "Internal tooling improvement",
+    "Follow up from last meeting",
+    "Automate this process",
+    "Reduce technical debt",
+    "Improve test coverage",
+    "Performance optimisation",
+    None,
+]
+
+
+def _random_name() -> str:
+    """Generate a random item name between 8 and 32 characters."""
+    adj  = random.choice(_ADJECTIVES)
+    noun = random.choice(_NOUNS)
+    suffix = ''.join(random.choices(string.digits, k=4))
+    return f"{adj} {noun} {suffix}"[:32]
+
+
+def _random_due_on() -> Optional[datetime.datetime]:
+    """Return a random datetime, past or future, or None."""
+    if random.random() < 0.15:          # ~15% have no due date
+        return None
+    offset_days = random.randint(-180, 180)
+    return datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=offset_days)
+
+
+@app.command('blitz')
+def blitz(
+    count: int = typer.Option(100, '--count', help='Number of items to create.'),
+    creator_id: int = typer.Option(1, '--creator-id', help='ID of the user to assign items to.'),
+):
+    """Populate the database with random items."""
+    priorities = list(Priority)
+    states     = list(State)
+
+    with Session(engine) as session:
+        for _ in range(count):
+            session.add(Item(
+                name=_random_name(),
+                description=random.choice(_DESCRIPTIONS),
+                priority=random.choice(priorities),
+                state=random.choice(states),
+                due_on=_random_due_on(),
+                creator_id=creator_id,
+            ))
+        session.commit()
+
+    typer.echo(f"{count} items added for creator_id={creator_id}.")
 
 
 @app.command('create')
