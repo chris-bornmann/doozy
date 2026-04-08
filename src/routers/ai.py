@@ -11,7 +11,7 @@ from sqlmodel import Session, case
 
 from app.config import Settings
 from app.security import oauth2_scheme
-from constants import Priority
+from constants import Priority, State
 from db.items import add, find, get, remove, update
 from db.main import get_session
 from db.models import Item, User
@@ -42,6 +42,7 @@ Return ONLY a JSON object with this structure:
     "name": <string or null>,
     "description": <string or null>,
     "priority": "HIGH" | "MEDIUM" | "LOW" | null,
+    "state": "NEW" | "IN_PROGRESS" | "DONE" | "CANCELLED" | null,
     "due_on": <ISO 8601 datetime string or null, e.g. "2026-06-01T00:00:00Z">
   }},
   "error": <string describing why the request cannot be fulfilled, or null>
@@ -70,6 +71,7 @@ class AIItemFields(BaseModel):
     name: Optional[str] = Field(default=None, max_length=32)
     description: Optional[str] = Field(default=None, max_length=128)
     priority: Optional[Priority] = Field(default=None)
+    state: Optional[State] = Field(default=None)
     due_on: Optional[datetime] = Field(default=None)
 
     @field_validator('priority', mode='before')
@@ -77,6 +79,13 @@ class AIItemFields(BaseModel):
     def parse_priority(cls, v):
         if isinstance(v, str):
             return Priority[v.upper()]
+        return v
+
+    @field_validator('state', mode='before')
+    @classmethod
+    def parse_state(cls, v):
+        if isinstance(v, str):
+            return State[v.upper()]
         return v
 
 

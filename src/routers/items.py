@@ -22,6 +22,7 @@ class SortBy(str, Enum):
     priority   = "priority"
     created_on = "created_on"
     due_on     = "due_on"
+    state      = "state"
     custom     = "custom"
 
 
@@ -48,6 +49,7 @@ _SORT_COLUMNS = {
     SortBy.priority:   Item.priority,
     SortBy.created_on: Item.created_on,
     SortBy.due_on:     Item.due_on,
+    SortBy.state:      Item.state,
 }
 
 
