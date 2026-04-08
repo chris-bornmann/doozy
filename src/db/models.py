@@ -7,7 +7,7 @@ from typing import Optional
 import sqlalchemy as sa
 from sqlmodel import Field, SQLModel, Relationship
 
-from constants import Priority
+from constants import Priority, State
 
 
 class PriorityType(sa.TypeDecorator):
@@ -24,6 +24,22 @@ class PriorityType(sa.TypeDecorator):
         if value is None:
             return None
         return Priority(value)
+
+
+class StateType(sa.TypeDecorator):
+    """Stores State as an integer; returns a State enum on load."""
+    impl = sa.Integer
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        return int(value)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        return State(value)
 
 
 class UserNoSecret(SQLModel):
@@ -70,6 +86,11 @@ class Item(SQLModel, table=True):
     priority: Optional[Priority] = Field(
         default=None,
         sa_column=sa.Column(PriorityType(), nullable=True),
+    )
+
+    state: State = Field(
+        default=State.NEW,
+        sa_column=sa.Column(StateType(), nullable=False),
     )
 
     creator_id: int = Field(foreign_key=User.__tablename__ + '.id')
