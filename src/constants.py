@@ -13,3 +13,9 @@ class State(int, Enum):
     IN_PROGRESS = 1
     DONE = 2
     CANCELLED = 3
+
+
+class UserState(int, Enum):
+    NEW = 0
+    AUTHENTICATED = 1
+    DISABLED = 2

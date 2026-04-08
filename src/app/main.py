@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from db.main import db_create, get_session
 from app.middleware import LoggingMiddleware, TimingMiddleware
-from routers import ai, items, users
+from routers import ai, items, users, verification
 from util.security import authenticate_user, encode_token, Token
 
 # configuration and oauth-related helpers
@@ -79,7 +79,9 @@ app.add_middleware(TimingMiddleware)
 
 app.include_router(ai.router)
 app.include_router(items.router)
+app.include_router(users.public_router)
 app.include_router(users.router)
+app.include_router(verification.router)
 
 # Define allowed origins.  Eventually this should include an actual
 # web hosted site where the GUI is served from.
@@ -91,6 +93,7 @@ app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["GET", 
 
 # Permanent URLs too...
 app.include_router(items.router, prefix="/v1/items", tags=["items", "v1"])
+app.include_router(users.public_router, prefix="/v1/users", tags=["users", "v1"])
 app.include_router(users.router, prefix="/v1/users", tags=["users", "v1"])
 
 # Must be called after all routers are included so pagination deps are applied.
