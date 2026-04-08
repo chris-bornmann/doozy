@@ -3,11 +3,14 @@ from typing import Annotated, Optional
 import typer
 from prettytable import PrettyTable
 
+from sqlmodel import Session
+
+from db.main import engine
 from db.users import all, get as user_get, remove as user_remove
 from db.models import User
 
 
-KEYS = ['id', 'username', 'full_name']
+KEYS = ['id', 'username', 'full_name', 'state']
 app = typer.Typer()
 
 
@@ -18,16 +21,17 @@ def get(
     table = PrettyTable()
     table.field_names = KEYS
 
-    if id is None:
-        recs = all()
-    else:
-        rec = user_get(id)
-        if rec is None:
-            print('No such user')
-            raise typer.Exit(code=1)
-        recs = [rec]
+    with Session(engine) as session:
+        if id is None:
+            recs = all(session)
+        else:
+            rec = user_get(session, id)
+            if rec is None:
+                print('No such user')
+                raise typer.Exit(code=1)
+            recs = [rec]
 
-    data = [[user.dict()[key] for key in KEYS] for user in recs]
+    data = [[user.model_dump()[key] for key in KEYS] for user in recs]
     table.add_rows(data)
     print(table)
 
@@ -36,9 +40,10 @@ def get(
 def remove(
     id: Annotated[int, typer.Argument()]
 ):
-    user: Optional[User] = user_get(id)
-    if user is None:
-        print('No such user')
-        raise typer.Exit(code=1)
+    with Session(engine) as session:
+        user: Optional[User] = user_get(session, id)
+        if user is None:
+            print('No such user')
+            raise typer.Exit(code=1)
 
-    user_remove(user)
+        user_remove(session, user)

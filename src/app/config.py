@@ -18,4 +18,13 @@ class Settings(BaseSettings):
 
     ANTHROPIC_API_KEY: Optional[str] = None
 
+    SMTP_HOST: str = "localhost"
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
+    SMTP_FROM: str = "noreply@doozy.app"
+    SMTP_VALIDATE_CERTS: bool = True
+    VERIFICATION_EXPIRE_MINUTES: int = 15
+    VERIFICATION_URL: str = "http://localhost:8000/"
+
     model_config: SettingsConfigDict = SettingsConfigDict(env_file=find_dotenv())
