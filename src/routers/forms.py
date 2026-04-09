@@ -1,9 +1,9 @@
 
 import datetime as dt
 from datetime import date, datetime
-from typing import Annotated, Optional
+from typing import Annotated, Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from constants import Priority, State
 
@@ -31,6 +31,16 @@ class ItemFilter(BaseModel):
     name: Optional[str] = None
     state: list[State] = []
     priority: list[Priority] = []
+
+    @field_validator('state', mode='before')
+    @classmethod
+    def parse_state(cls, v: list[Any]) -> list[State]:
+        return [State[s.upper()] if isinstance(s, str) else s for s in v]
+
+    @field_validator('priority', mode='before')
+    @classmethod
+    def parse_priority(cls, v: list[Any]) -> list[Priority]:
+        return [Priority[p.upper()] if isinstance(p, str) else p for p in v]
     created_after: Optional[datetime] = None
     created_before: Optional[datetime] = None
     created_on: Optional[date] = None
