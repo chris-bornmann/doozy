@@ -11,7 +11,7 @@ from sqlmodel import Session, select
 
 from app.security import oauth2_scheme
 from db.main import get_session
-from db.models import ItemTag, Tag
+from db.models import ItemTag, Tag, User
 from routers.users import get_current_user
 
 
@@ -36,7 +36,7 @@ class TagForm(BaseModel):
 
 @router.post('/')
 async def create_tag(
-    _: Annotated[object, Depends(get_current_user)],
+    _: Annotated[User, Depends(get_current_user)],
     data: TagForm,
     session: Session = Depends(get_session),
 ) -> Tag:
@@ -62,7 +62,7 @@ async def list_tags(
 
 @router.delete('/{id}')
 async def delete_tag(
-    _: Annotated[object, Depends(get_current_user)],
+    _: Annotated[User, Depends(get_current_user)],
     id: int,
     session: Session = Depends(get_session),
 ) -> dict[str, bool]:

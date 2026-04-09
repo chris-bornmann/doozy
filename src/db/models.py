@@ -10,52 +10,24 @@ from sqlmodel import Field, SQLModel, Relationship
 from constants import Priority, State, UserState
 
 
-class PriorityType(sa.TypeDecorator):
-    """Stores Priority as an integer; returns a Priority enum on load."""
-    impl = sa.Integer
-    cache_ok = True
+def _make_enum_type(enum_class):
+    """Return a TypeDecorator class that persists *enum_class* as an integer."""
+    class _EnumType(sa.TypeDecorator):
+        impl = sa.Integer
+        cache_ok = True
 
-    def process_bind_param(self, value, dialect):
-        if value is None:
-            return None
-        return int(value)
+        def process_bind_param(self, value, dialect):
+            return int(value) if value is not None else None
 
-    def process_result_value(self, value, dialect):
-        if value is None:
-            return None
-        return Priority(value)
+        def process_result_value(self, value, dialect):
+            return enum_class(value) if value is not None else None
 
-
-class StateType(sa.TypeDecorator):
-    """Stores State as an integer; returns a State enum on load."""
-    impl = sa.Integer
-    cache_ok = True
-
-    def process_bind_param(self, value, dialect):
-        if value is None:
-            return None
-        return int(value)
-
-    def process_result_value(self, value, dialect):
-        if value is None:
-            return None
-        return State(value)
+    return _EnumType
 
 
-class UserStateType(sa.TypeDecorator):
-    """Stores UserState as an integer; returns a UserState enum on load."""
-    impl = sa.Integer
-    cache_ok = True
-
-    def process_bind_param(self, value, dialect):
-        if value is None:
-            return None
-        return int(value)
-
-    def process_result_value(self, value, dialect):
-        if value is None:
-            return None
-        return UserState(value)
+PriorityType  = _make_enum_type(Priority)
+StateType     = _make_enum_type(State)
+UserStateType = _make_enum_type(UserState)
 
 
 class UserNoSecret(SQLModel):
@@ -158,10 +130,7 @@ class Item(SQLModel, table=True):
         default=None,
         sa_column=sa.Column(sa.DateTime(timezone=True))
     )
-    completed_on: Optional[datetime] = Field(
-        default=None,
-        # sa_column=sa.Column(sa.DateTime(timezone=True))
-    )
+    completed_on: Optional[datetime] = Field(default=None)
     updated_on: Optional[datetime] = Field(
         default=None,
         sa_column_kwargs={"onupdate": lambda: dt.datetime.now(dt.timezone.utc)}
