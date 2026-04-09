@@ -10,7 +10,7 @@ from db.users import all, get as user_get, remove as user_remove
 from db.models import User
 
 
-KEYS = ['id', 'username', 'full_name', 'state']
+USER_COLUMNS = ['id', 'username', 'full_name', 'state']
 app = typer.Typer()
 
 
@@ -19,7 +19,7 @@ def get(
     id: Annotated[Optional[int], typer.Argument()] = None
 ):
     table = PrettyTable()
-    table.field_names = KEYS
+    table.field_names = USER_COLUMNS
 
     with Session(engine) as session:
         if id is None:
@@ -27,11 +27,11 @@ def get(
         else:
             rec = user_get(session, id)
             if rec is None:
-                print('No such user')
+                typer.echo('Error: no such user.', err=True)
                 raise typer.Exit(code=1)
             recs = [rec]
 
-    data = [[user.model_dump()[key] for key in KEYS] for user in recs]
+    data = [[user.model_dump()[key] for key in USER_COLUMNS] for user in recs]
     table.add_rows(data)
     print(table)
 
@@ -43,7 +43,7 @@ def remove(
     with Session(engine) as session:
         user: Optional[User] = user_get(session, id)
         if user is None:
-            print('No such user')
+            typer.echo('Error: no such user.', err=True)
             raise typer.Exit(code=1)
 
         user_remove(session, user)

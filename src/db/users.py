@@ -23,6 +23,8 @@ def remove(session: Session, user: User) -> None:
     session.commit()
 
 
+# Named create_user (not add) because it encapsulates password hashing —
+# a different abstraction level from the simple add() in db/items.py.
 def create_user(
     session: Session,
     username: str,

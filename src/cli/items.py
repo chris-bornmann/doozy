@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Annotated, Optional
 
 import typer
@@ -11,7 +12,7 @@ from db.main import engine
 from db.models import Item
 
 
-KEYS = ['id', 'name', 'creator_id']
+ITEM_COLUMNS = ['id', 'name', 'creator_id']
 app = typer.Typer()
 
 
@@ -20,7 +21,7 @@ def get(
     id: Annotated[Optional[int], typer.Argument()] = None
 ):
     table = PrettyTable()
-    table.field_names = KEYS
+    table.field_names = ITEM_COLUMNS
 
     with Session(engine) as session:
         if id is None:
@@ -28,11 +29,11 @@ def get(
         else:
             rec: Optional[Item] = item_get(session, id)
             if rec is None:
-                print('No such item')
+                typer.echo('Error: no such item.', err=True)
                 raise typer.Exit(code=1)
             recs = [rec]
 
-    data = [[item.model_dump()[key] for key in KEYS] for item in recs]
+    data = [[item.model_dump()[key] for key in ITEM_COLUMNS] for item in recs]
     table.add_rows(data)
     print(table)
 
@@ -44,7 +45,7 @@ def remove(
     with Session(engine) as session:
         item: Optional[Item] = item_get(session, id)
         if item is None:
-            print('No such item')
+            typer.echo('Error: no such item.', err=True)
             raise typer.Exit(code=1)
 
         item_remove(session, item)
@@ -64,20 +65,19 @@ def update(
     if description is not None: changes['description'] = description
     if priority    is not None: changes['priority']    = priority
     if due_on      is not None:
-        from datetime import datetime
         changes['due_on'] = datetime.fromisoformat(due_on)
 
     if not changes:
-        print('Nothing to update — supply at least one option.')
+        typer.echo('Error: nothing to update — supply at least one option.', err=True)
         raise typer.Exit(code=1)
 
     with Session(engine) as session:
         item: Optional[Item] = item_get(session, id)
         if item is None:
-            print('No such item')
+            typer.echo('Error: no such item.', err=True)
             raise typer.Exit(code=1)
         item_update(session, item, changes)
-        print(f'Item {id} updated.')
+        typer.echo(f'Item {id} updated.')
 
 
 @app.command('reorder')
@@ -88,17 +88,17 @@ def reorder(
     with Session(engine) as session:
         item: Optional[Item] = item_get(session, id)
         if item is None:
-            print('No such item')
+            typer.echo('Error: no such item.', err=True)
             raise typer.Exit(code=1)
 
         if after_id is not None:
             after_item: Optional[Item] = item_get(session, after_id)
             if after_item is None:
-                print('No such after_id item')
+                typer.echo('Error: no such after_id item.', err=True)
                 raise typer.Exit(code=1)
             if after_item.creator_id != item.creator_id:
-                print('Items belong to different users')
+                typer.echo('Error: items belong to different users.', err=True)
                 raise typer.Exit(code=1)
 
         entry = move_item(session, item.creator_id, id, after_id)
-        print(f'Item {id} moved, order_key={entry.order_key}')
+        typer.echo(f'Item {id} moved, order_key={entry.order_key}')
