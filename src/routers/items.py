@@ -1,6 +1,7 @@
 
+import datetime as dt
 from enum import Enum
-from typing import Annotated, TypeVar
+from typing import Annotated, Optional, TypeVar
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi_pagination import Page
@@ -13,8 +14,8 @@ from app.security import oauth2_scheme
 from db.item_orders import move_item
 from db.items import add, get, remove, update
 from db.main import get_session
-from db.models import Item, ItemTag, User, UserItemOrder
-from routers.forms import Item as FormItem, PatchItem, Reorder
+from db.models import Item, ItemTag, Tag, User, UserItemOrder
+from routers.forms import Item as FormItem, ItemFilter, PatchItem, Reorder
 from routers.users import get_current_user
 
 
@@ -82,6 +83,76 @@ async def read_items(
             .order_by(order_expr)
         )
     return paginate(session, stmt)
+
+
+def _apply_filters(stmt, f: ItemFilter):
+    if f.name:
+        stmt = stmt.where(Item.name.ilike(f'%{f.name}%'))
+    if f.state:
+        stmt = stmt.where(Item.state.in_(f.state))
+    if f.priority:
+        stmt = stmt.where(Item.priority.in_(f.priority))
+
+    for col, after, before, on in [
+        (Item.created_on,   f.created_after,   f.created_before,   f.created_on),
+        (Item.due_on,       f.due_after,        f.due_before,       f.due_on),
+        (Item.completed_on, f.completed_after,  f.completed_before, f.completed_on),
+    ]:
+        if on:
+            start = dt.datetime(on.year, on.month, on.day, tzinfo=dt.timezone.utc)
+            stmt = stmt.where(col >= start).where(col < start + dt.timedelta(days=1))
+        if after:
+            stmt = stmt.where(col > after)
+        if before:
+            stmt = stmt.where(col < before)
+
+    if f.tags:
+        tag_subq = (
+            select(ItemTag.item_id)
+            .join(Tag, Tag.id == ItemTag.tag_id)
+            .where(Tag.name.in_(f.tags))
+            .subquery()
+        )
+        stmt = stmt.where(Item.id.in_(select(tag_subq.c.item_id)))
+
+    return stmt
+
+
+@router.post('/search')
+async def search_items(
+    *,
+    user: Annotated[User, Depends(get_current_user)],
+    session: Session = Depends(get_session),
+    sort_by: SortBy = Query(default=SortBy.created_on),
+    reverse: bool = Query(default=False),
+    filter: ItemFilter,
+) -> CustomPage[Item]:
+    if sort_by == SortBy.custom:
+        col = UserItemOrder.order_key
+        order_expr = desc(col) if reverse else asc(col)
+        stmt = (
+            select(Item)
+            .outerjoin(
+                UserItemOrder,
+                and_(UserItemOrder.item_id == Item.id, UserItemOrder.user_id == user.id),
+            )
+            .where(Item.creator_id == user.id)
+            .order_by(order_expr)
+        )
+    else:
+        col = _SORT_COLUMNS[sort_by]
+        order_expr = nullsfirst(desc(col)) if reverse else nulls_last(asc(col))
+        stmt = (
+            select(Item)
+            .where(Item.creator_id == user.id)
+            .order_by(order_expr)
+        )
+    return paginate(session, _apply_filters(stmt, filter))
+
+
+@router.options('/search')
+async def options_items_search() -> Response:
+    return Response(headers={"Allow": "POST, OPTIONS"}, status_code=204)
 
 
 @router.get("/{id}")

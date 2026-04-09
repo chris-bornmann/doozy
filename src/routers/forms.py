@@ -1,5 +1,6 @@
 
-from datetime import datetime
+import datetime as dt
+from datetime import date, datetime
 from typing import Annotated, Optional
 
 from pydantic import BaseModel, Field
@@ -24,6 +25,22 @@ class PatchItem(BaseModel):
 
 class Reorder(BaseModel):
     after_id: Optional[int] = None
+
+
+class ItemFilter(BaseModel):
+    name: Optional[str] = None
+    state: list[State] = []
+    priority: list[Priority] = []
+    created_after: Optional[datetime] = None
+    created_before: Optional[datetime] = None
+    created_on: Optional[date] = None
+    due_after: Optional[datetime] = None
+    due_before: Optional[datetime] = None
+    due_on: Optional[date] = None
+    completed_after: Optional[datetime] = None
+    completed_before: Optional[datetime] = None
+    completed_on: Optional[date] = None
+    tags: list[str] = []
 
 
 class User(BaseModel):
