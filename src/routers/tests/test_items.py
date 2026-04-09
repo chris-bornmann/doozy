@@ -3,7 +3,7 @@ import datetime as dt
 from sqlmodel import Session
 
 from constants import Priority, State
-from db.models import Item
+from db.models import Item, Tag, ItemTag
 from db.users import create_user
 
 
@@ -553,3 +553,245 @@ def test_sort_by_state(auth_headers, session):
     assert response.status_code == 200
     ids = [i["id"] for i in response.json()["items"]]
     assert ids == [new.id, in_prog.id, done.id, cancelled.id]
+
+
+# ---------------------------------------------------------------------------
+# POST /items/search
+# ---------------------------------------------------------------------------
+
+def _search(client, **filter_fields):
+    """Helper: POST /items/search with the given filter fields, size=100."""
+    return client.post("/items/search", json=filter_fields, params={"size": 100})
+
+
+def test_search_empty_filter_returns_all(auth_headers):
+    client, _ = auth_headers
+    client.post("/items/", params={"name": "Search item one aaa"})
+    client.post("/items/", params={"name": "Search item two aaa"})
+    response = _search(client)
+    assert response.status_code == 200
+    names = [i["name"] for i in response.json()["items"]]
+    assert "Search item one aaa" in names
+    assert "Search item two aaa" in names
+
+
+def test_search_requires_auth(client):
+    assert client.post("/items/search", json={}).status_code == 401
+
+
+def test_search_filter_by_name_substring(auth_headers):
+    client, _ = auth_headers
+    client.post("/items/", params={"name": "Fix the login bug"})
+    client.post("/items/", params={"name": "Write release notes"})
+    ids = [i["id"] for i in _search(client, name="login").json()["items"]]
+    assert len(ids) == 1
+
+
+def test_search_filter_by_name_case_insensitive(auth_headers):
+    client, _ = auth_headers
+    client.post("/items/", params={"name": "Fix the LOGIN bug"})
+    ids = [i["id"] for i in _search(client, name="login").json()["items"]]
+    assert len(ids) == 1
+
+
+def test_search_filter_by_name_no_match(auth_headers):
+    client, _ = auth_headers
+    client.post("/items/", params={"name": "Nothing matches here"})
+    items = _search(client, name="xyzzy").json()["items"]
+    assert items == []
+
+
+def test_search_filter_by_single_state(auth_headers):
+    client, _ = auth_headers
+    id_new  = client.post("/items/", params={"name": "State filter new aaa"}).json()["id"]
+    id_done = client.post("/items/", params={"name": "State filter done aa"}).json()["id"]
+    client.patch(f"/items/{id_done}", json={"state": State.DONE})
+    ids = [i["id"] for i in _search(client, state=[State.DONE]).json()["items"]]
+    assert id_done in ids
+    assert id_new not in ids
+
+
+def test_search_filter_by_multiple_states(auth_headers):
+    client, _ = auth_headers
+    id_new  = client.post("/items/", params={"name": "Multi state new aaaa"}).json()["id"]
+    id_prog = client.post("/items/", params={"name": "Multi state prog aaa"}).json()["id"]
+    id_done = client.post("/items/", params={"name": "Multi state done aaa"}).json()["id"]
+    client.patch(f"/items/{id_prog}", json={"state": State.IN_PROGRESS})
+    client.patch(f"/items/{id_done}", json={"state": State.DONE})
+    ids = [i["id"] for i in _search(client, state=[State.NEW, State.IN_PROGRESS]).json()["items"]]
+    assert id_new in ids
+    assert id_prog in ids
+    assert id_done not in ids
+
+
+def test_search_filter_by_priority(auth_headers):
+    client, _ = auth_headers
+    id_high = client.post("/items/", params={"name": "Priority high item!"}).json()["id"]
+    id_low  = client.post("/items/", params={"name": "Priority low itemaa"}).json()["id"]
+    client.patch(f"/items/{id_high}", json={"priority": Priority.HIGH})
+    client.patch(f"/items/{id_low}",  json={"priority": Priority.LOW})
+    ids = [i["id"] for i in _search(client, priority=[Priority.HIGH]).json()["items"]]
+    assert id_high in ids
+    assert id_low not in ids
+
+
+def test_search_filter_by_multiple_priorities(auth_headers):
+    client, _ = auth_headers
+    id_high   = client.post("/items/", params={"name": "Multi prio high aaa"}).json()["id"]
+    id_medium = client.post("/items/", params={"name": "Multi prio medium aa"}).json()["id"]
+    id_low    = client.post("/items/", params={"name": "Multi prio low aaaaa"}).json()["id"]
+    client.patch(f"/items/{id_high}",   json={"priority": Priority.HIGH})
+    client.patch(f"/items/{id_medium}", json={"priority": Priority.MEDIUM})
+    client.patch(f"/items/{id_low}",    json={"priority": Priority.LOW})
+    ids = [i["id"] for i in _search(client, priority=[Priority.HIGH, Priority.LOW]).json()["items"]]
+    assert id_high in ids
+    assert id_low in ids
+    assert id_medium not in ids
+
+
+def test_search_filter_by_created_after(auth_headers, session):
+    client, user = auth_headers
+    old = Item(
+        name="Old item aaaaaaaa", creator_id=user.id,
+        created_on=dt.datetime(2020, 1, 1, tzinfo=dt.timezone.utc),
+    )
+    new = Item(
+        name="New item aaaaaaaa", creator_id=user.id,
+        created_on=dt.datetime(2026, 1, 1, tzinfo=dt.timezone.utc),
+    )
+    session.add_all([old, new])
+    session.commit()
+    threshold = "2023-01-01T00:00:00Z"
+    ids = [i["id"] for i in _search(client, created_after=threshold).json()["items"]]
+    assert new.id in ids
+    assert old.id not in ids
+
+
+def test_search_filter_by_created_before(auth_headers, session):
+    client, user = auth_headers
+    old = Item(
+        name="Old created item aa", creator_id=user.id,
+        created_on=dt.datetime(2020, 1, 1, tzinfo=dt.timezone.utc),
+    )
+    new = Item(
+        name="New created item aa", creator_id=user.id,
+        created_on=dt.datetime(2026, 1, 1, tzinfo=dt.timezone.utc),
+    )
+    session.add_all([old, new])
+    session.commit()
+    threshold = "2023-01-01T00:00:00Z"
+    ids = [i["id"] for i in _search(client, created_before=threshold).json()["items"]]
+    assert old.id in ids
+    assert new.id not in ids
+
+
+def test_search_filter_by_created_on(auth_headers, session):
+    client, user = auth_headers
+    target_day = dt.datetime(2025, 6, 15, 12, 0, tzinfo=dt.timezone.utc)
+    other_day  = dt.datetime(2025, 6, 16, 12, 0, tzinfo=dt.timezone.utc)
+    match = Item(name="Created on target day", creator_id=user.id, created_on=target_day)
+    no_match = Item(name="Created on other day!", creator_id=user.id, created_on=other_day)
+    session.add_all([match, no_match])
+    session.commit()
+    ids = [i["id"] for i in _search(client, created_on="2025-06-15").json()["items"]]
+    assert match.id in ids
+    assert no_match.id not in ids
+
+
+def test_search_filter_by_due_on(auth_headers, session):
+    client, user = auth_headers
+    target = dt.datetime(2025, 9, 1, 9, 0, tzinfo=dt.timezone.utc)
+    other  = dt.datetime(2025, 9, 2, 9, 0, tzinfo=dt.timezone.utc)
+    match    = Item(name="Due on target day aaa", creator_id=user.id, due_on=target)
+    no_match = Item(name="Due on other day aaaa", creator_id=user.id, due_on=other)
+    session.add_all([match, no_match])
+    session.commit()
+    ids = [i["id"] for i in _search(client, due_on="2025-09-01").json()["items"]]
+    assert match.id in ids
+    assert no_match.id not in ids
+
+
+def test_search_filter_by_completed_on(auth_headers, session):
+    client, user = auth_headers
+    target = dt.datetime(2025, 3, 10, 15, 0, tzinfo=dt.timezone.utc)
+    other  = dt.datetime(2025, 3, 11, 15, 0, tzinfo=dt.timezone.utc)
+    match    = Item(name="Completed on target!!", creator_id=user.id, completed_on=target, state=State.DONE)
+    no_match = Item(name="Completed on other day", creator_id=user.id, completed_on=other, state=State.DONE)
+    session.add_all([match, no_match])
+    session.commit()
+    ids = [i["id"] for i in _search(client, completed_on="2025-03-10").json()["items"]]
+    assert match.id in ids
+    assert no_match.id not in ids
+
+
+def test_search_filter_by_single_tag(auth_headers, session):
+    client, user = auth_headers
+    tagged   = Item(name="Tagged item aaaaaaaa", creator_id=user.id)
+    untagged = Item(name="Untagged item aaaaaa", creator_id=user.id)
+    tag = Tag(name="urgent")
+    session.add_all([tagged, untagged, tag])
+    session.commit()
+    session.add(ItemTag(item_id=tagged.id, tag_id=tag.id))
+    session.commit()
+    ids = [i["id"] for i in _search(client, tags=["urgent"]).json()["items"]]
+    assert tagged.id in ids
+    assert untagged.id not in ids
+
+
+def test_search_filter_by_multiple_tags_or_semantics(auth_headers, session):
+    client, user = auth_headers
+    item_a  = Item(name="Item with tag work aa", creator_id=user.id)
+    item_b  = Item(name="Item with tag urgent!", creator_id=user.id)
+    item_ab = Item(name="Item with both tags!!", creator_id=user.id)
+    item_c  = Item(name="Item with no tags aaa", creator_id=user.id)
+    tag_w = Tag(name="work")
+    tag_u = Tag(name="urgent2")
+    session.add_all([item_a, item_b, item_ab, item_c, tag_w, tag_u])
+    session.commit()
+    session.add_all([
+        ItemTag(item_id=item_a.id,  tag_id=tag_w.id),
+        ItemTag(item_id=item_b.id,  tag_id=tag_u.id),
+        ItemTag(item_id=item_ab.id, tag_id=tag_w.id),
+        ItemTag(item_id=item_ab.id, tag_id=tag_u.id),
+    ])
+    session.commit()
+    ids = [i["id"] for i in _search(client, tags=["work", "urgent2"]).json()["items"]]
+    assert item_a.id in ids
+    assert item_b.id in ids
+    assert item_ab.id in ids
+    assert item_c.id not in ids
+
+
+def test_search_filter_combined(auth_headers, session):
+    client, user = auth_headers
+    tag = Tag(name="combined-tag")
+    session.add(tag)
+    session.commit()
+
+    match = Item(name="Combined match item!", creator_id=user.id, state=State.DONE)
+    wrong_state = Item(name="Combined match item!", creator_id=user.id, state=State.NEW)
+    wrong_name  = Item(name="No match at all aaaa", creator_id=user.id, state=State.DONE)
+    no_tag      = Item(name="Combined match item!", creator_id=user.id, state=State.DONE)
+    session.add_all([match, wrong_state, wrong_name, no_tag])
+    session.commit()
+    session.add(ItemTag(item_id=match.id, tag_id=tag.id))
+    session.add(ItemTag(item_id=wrong_state.id, tag_id=tag.id))
+    session.add(ItemTag(item_id=wrong_name.id, tag_id=tag.id))
+    session.commit()
+
+    ids = [i["id"] for i in _search(
+        client, name="Combined", state=[State.DONE], tags=["combined-tag"]
+    ).json()["items"]]
+    assert match.id in ids
+    assert wrong_state.id not in ids
+    assert wrong_name.id not in ids
+    assert no_tag.id not in ids
+
+
+def test_search_no_cross_user_leakage(auth_headers, session):
+    client, _ = auth_headers
+    other = create_user(session, username="otheruser3", password="password1234")
+    session.add(Item(name="Other users item aaa", creator_id=other.id))
+    session.commit()
+    names = [i["name"] for i in _search(client).json()["items"]]
+    assert "Other users item aaa" not in names
