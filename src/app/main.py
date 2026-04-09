@@ -89,6 +89,7 @@ app.include_router(verification.router)
 # web hosted site where the GUI is served from.
 origins = [
     "http://localhost:5173",  # Local dev/test.
+    "http://100.104.51.111:5173",  # Tailscale.
 ]
 
 app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"], allow_headers=["Content-Type", "Authorization"])

@@ -130,7 +130,10 @@ class Item(SQLModel, table=True):
         default=None,
         sa_column=sa.Column(sa.DateTime(timezone=True))
     )
-    completed_on: Optional[datetime] = Field(default=None)
+    completed_on: Optional[datetime] = Field(
+        default=None,
+        sa_column=sa.Column(sa.DateTime(timezone=True), nullable=True),
+    )
     updated_on: Optional[datetime] = Field(
         default=None,
         sa_column_kwargs={"onupdate": lambda: dt.datetime.now(dt.timezone.utc)}
