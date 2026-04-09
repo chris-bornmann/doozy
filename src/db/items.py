@@ -1,8 +1,10 @@
 
+import datetime as dt
 from typing import Optional
 
 from sqlmodel import Session, select
 
+from constants import State
 from db.models import Item
 
 
@@ -27,6 +29,12 @@ def find(session: Session, name: str) -> Optional[Item]:
 
 
 def update(session: Session, item: Item, changes: dict) -> Item:
+    if 'state' in changes:
+        if changes['state'] in (State.DONE, State.CANCELLED):
+            changes['completed_on'] = dt.datetime.now(dt.timezone.utc)
+        else:
+            changes['completed_on'] = None
+
     for field, value in changes.items():
         setattr(item, field, value)
     session.add(item)
