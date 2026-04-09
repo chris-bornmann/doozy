@@ -474,6 +474,70 @@ def test_patch_item_state_all_values(auth_headers):
         assert response.json()["state"] == state
 
 
+# ---------------------------------------------------------------------------
+# completed_on auto-management
+# ---------------------------------------------------------------------------
+
+def test_new_item_has_no_completed_on(auth_headers):
+    client, _ = auth_headers
+    item_id = client.post("/items/", params={"name": "No completed on yet!"}).json()["id"]
+    data = client.get(f"/items/{item_id}").json()
+    assert data["completed_on"] is None
+
+
+def test_patch_state_to_done_sets_completed_on(auth_headers):
+    client, _ = auth_headers
+    item_id = client.post("/items/", params={"name": "Done state test item"}).json()["id"]
+    response = client.patch(f"/items/{item_id}", json={"state": State.DONE})
+    assert response.status_code == 200
+    assert response.json()["completed_on"] is not None
+
+
+def test_patch_state_to_cancelled_sets_completed_on(auth_headers):
+    client, _ = auth_headers
+    item_id = client.post("/items/", params={"name": "Cancelled state test!"}).json()["id"]
+    response = client.patch(f"/items/{item_id}", json={"state": State.CANCELLED})
+    assert response.status_code == 200
+    assert response.json()["completed_on"] is not None
+
+
+def test_patch_state_to_in_progress_clears_completed_on(auth_headers):
+    client, _ = auth_headers
+    item_id = client.post("/items/", params={"name": "In progress clears it"}).json()["id"]
+    client.patch(f"/items/{item_id}", json={"state": State.DONE})
+    response = client.patch(f"/items/{item_id}", json={"state": State.IN_PROGRESS})
+    assert response.status_code == 200
+    assert response.json()["completed_on"] is None
+
+
+def test_patch_state_to_new_clears_completed_on(auth_headers):
+    client, _ = auth_headers
+    item_id = client.post("/items/", params={"name": "New state clears itaa"}).json()["id"]
+    client.patch(f"/items/{item_id}", json={"state": State.CANCELLED})
+    response = client.patch(f"/items/{item_id}", json={"state": State.NEW})
+    assert response.status_code == 200
+    assert response.json()["completed_on"] is None
+
+
+def test_recompletion_resets_completed_on(auth_headers):
+    client, _ = auth_headers
+    item_id = client.post("/items/", params={"name": "Recompletion test aaa"}).json()["id"]
+    first_ts = client.patch(f"/items/{item_id}", json={"state": State.DONE}).json()["completed_on"]
+    client.patch(f"/items/{item_id}", json={"state": State.NEW})
+    response = client.patch(f"/items/{item_id}", json={"state": State.DONE})
+    assert response.status_code == 200
+    assert response.json()["completed_on"] is not None
+
+
+def test_patch_non_state_field_does_not_change_completed_on(auth_headers):
+    client, _ = auth_headers
+    item_id = client.post("/items/", params={"name": "Non state field test"}).json()["id"]
+    completed_on = client.patch(f"/items/{item_id}", json={"state": State.DONE}).json()["completed_on"]
+    client.patch(f"/items/{item_id}", json={"name": "Non state field tst2"})
+    data = client.get(f"/items/{item_id}").json()
+    assert data["completed_on"] == completed_on
+
+
 def test_sort_by_state(auth_headers, session):
     client, user = auth_headers
     done      = Item(name="Done item aaaaaaaa", creator_id=user.id, state=State.DONE)
