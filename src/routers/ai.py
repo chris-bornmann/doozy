@@ -20,8 +20,6 @@ from routers.users import get_current_user
 
 logger = logging.getLogger(__name__)
 
-settings = Settings()
-
 router = APIRouter(
     prefix="/ai",
     tags=["ai"],
@@ -67,6 +65,11 @@ class AIRequest(BaseModel):
     request: str
 
 
+def _parse_enum(enum_class, v):
+    """Coerce a string *v* to *enum_class* by upper-cased name; pass through anything else."""
+    return enum_class[v.upper()] if isinstance(v, str) else v
+
+
 class AIItemFields(BaseModel):
     name: Optional[str] = Field(default=None, max_length=32)
     description: Optional[str] = Field(default=None, max_length=128)
@@ -77,16 +80,12 @@ class AIItemFields(BaseModel):
     @field_validator('priority', mode='before')
     @classmethod
     def parse_priority(cls, v):
-        if isinstance(v, str):
-            return Priority[v.upper()]
-        return v
+        return _parse_enum(Priority, v)
 
     @field_validator('state', mode='before')
     @classmethod
     def parse_state(cls, v):
-        if isinstance(v, str):
-            return State[v.upper()]
-        return v
+        return _parse_enum(State, v)
 
 
 class AIResponse(BaseModel):
@@ -162,6 +161,7 @@ async def ai_request(
     data: AIRequest,
     session: Annotated[Session, Depends(get_session)],
 ) -> AIResponse:
+    settings = Settings()
     if not settings.ANTHROPIC_API_KEY:
         raise HTTPException(status_code=503, detail="AI features are not configured")
     try:

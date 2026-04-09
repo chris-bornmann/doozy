@@ -44,7 +44,7 @@ async def send_verification_email(user: User, raw_token: str) -> None:
     msg = MIMEText(body)
     msg["Subject"] = "Welcome to Doozy — verify your account"
     msg["From"] = settings.SMTP_FROM
-    msg["To"] = user.username  # username is the email for OAuth users
+    msg["To"] = user.username  # username doubles as the email address
 
     tls_context = ssl.create_default_context(cafile=certifi.where())
     try:

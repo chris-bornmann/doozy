@@ -1,5 +1,5 @@
 
-from typing import Annotated, TypeVar, List
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -36,20 +36,6 @@ public_router = APIRouter(
 )
 
 
-"""
-# !@# It seems like this, and get_current_user should be with the /token
-# endpoint, which currently lives in src/app/main.py.  I don't like it
-# there, but that would be better than here.
-def _fake_decode_token(
-    token: str
-) -> User:
-    return get_by_username(token)
-"""
-
-
-# !@# It seems like this, and get_current_user should be with the /token
-# endpoint, which currently lives in src/app/main.py.  I don't like it
-# there, but that would be better than here.
 async def get_current_user(
     token: Annotated[str, Depends(oauth2_scheme)],
     session: Session = Depends(get_session),
@@ -88,18 +74,13 @@ async def get_current_active_user(
     return current_user
 
 
-def _transform_to_user_no_secret(
-    users: List[User]
-) -> List[UserNoSecret]:
-    return [UserNoSecret(**user.model_dump()) for user in users]
-
-
 @router.get("/")
 async def read_users(
     *,
     session: Session = Depends(get_session),
 ) -> Page[UserNoSecret]:
-    return paginate(session, select(User), transformer=_transform_to_user_no_secret)
+    return paginate(session, select(User),
+                    transformer=lambda users: [UserNoSecret(**u.model_dump()) for u in users])
 
 
 @router.get('/me')
