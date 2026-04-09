@@ -19,6 +19,10 @@ dependencies = [
     "typer>=0.20.0",
 ]
 
+[tool.bandit]
+skips = ["B101"]
+exclude_dirs = ["tests", "src/conftest.py"]
+
 [tool.poe.tasks]
 test      = "pytest src/routers/tests/ src/tests/ -v"
 coverage  = "pytest src/routers/tests/ src/tests/ --cov=src --cov-report=term-missing --cov-fail-under=74"
@@ -35,6 +39,7 @@ pythonpath = ["src"]
 
 [dependency-groups]
 dev = [
+    "bandit[toml]>=1.9.4",
     "httpx>=0.28.1",
     "poethepoet>=0.42.1",
     "prettytable>=3.17.0",
