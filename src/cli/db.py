@@ -39,29 +39,6 @@ def _create_items(session: Session, users: list[User]) -> None:
     session.add(item_4)
     session.commit()
 
-    with Session(engine) as session:
-        item_2: Optional[Item] = session.get(Item, 2)
-        if item_2 is not None:
-            print(item_2)
-            item_2.description = "my description"
-            session.add(item_2)
-            session.commit()
-            print(item_2)
-            session.refresh(item_2)
-            print(item_2)
-    
- 
-    with Session(engine) as session:
-        item_3: Optional[Item] = session.get(Item, 3)
-        if item_3 is not None:
-            print(item_3)
-            item_3.due_on = datetime.datetime.now(datetime.timezone.utc)
-            session.add(item_3)
-            session.commit()
-            print(item_3)
-            session.refresh(item_3)
-            print(item_3)
-
 
 _ADJECTIVES = [
     "quick", "lazy", "bright", "dark", "loud", "silent", "smooth", "rough",
