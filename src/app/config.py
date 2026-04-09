@@ -5,14 +5,19 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
 
-    SECRET_KEY: str
-    ALGORITHM: str
+    # Optional here *should* mean the value really is optional - that the code will
+    # work with a None value.  That's not what it means today...  Today it just means
+    # that we aren't setting a default here, because the only usable values still
+    # need to be secret.
+
+    SECRET_KEY: Optional[str] = None
+    ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
-    DATABASE_URL: str
+    DATABASE_URL: str = "sqlite:///database.db"
 
-    GOOGLE_CLIENT_ID: str
-    GOOGLE_CLIENT_SECRET: str
+    GOOGLE_CLIENT_ID: Optional[str] = None
+    GOOGLE_CLIENT_SECRET: Optional[str] = None
 
     GUI_URL: str = "http://localhost:5173/"
 

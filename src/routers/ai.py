@@ -15,6 +15,7 @@ from constants import Priority, State
 from db.items import add, find, get, remove, update
 from db.main import get_session
 from db.models import Item, User
+from routers.forms import ItemFilter
 from routers.users import get_current_user
 
 
@@ -34,8 +35,8 @@ You are a task management assistant. Parse the user's natural language request a
 
 Return ONLY a JSON object with this structure:
 {{
-  "operation": "create" | "update" | "delete" | "reorder" | "list" | "unknown",
-  "item_id": <integer or null - the ID of the item to act on, if mentioned>,
+  "operation": "create" | "update" | "delete" | "list" | "unknown",
+  "item_id": <integer or null — the ID of the item to act on, for create/update/delete only>,
   "fields": {{
     "name": <string or null>,
     "description": <string or null>,
@@ -43,16 +44,39 @@ Return ONLY a JSON object with this structure:
     "state": "NEW" | "IN_PROGRESS" | "DONE" | "CANCELLED" | null,
     "due_on": <ISO 8601 datetime string or null, e.g. "2026-06-01T00:00:00Z">
   }},
+  "filter": {{
+    "name": <substring to match against item name, or null>,
+    "state": [<"NEW" | "IN_PROGRESS" | "DONE" | "CANCELLED">, ...],
+    "priority": [<"HIGH" | "MEDIUM" | "LOW">, ...],
+    "due_after": <ISO 8601 datetime (exclusive lower bound on due date) or null>,
+    "due_before": <ISO 8601 datetime (exclusive upper bound on due date) or null>,
+    "due_on": <YYYY-MM-DD calendar day for due date, or null>,
+    "created_after": <ISO 8601 datetime or null>,
+    "created_before": <ISO 8601 datetime or null>,
+    "created_on": <YYYY-MM-DD or null>,
+    "completed_after": <ISO 8601 datetime or null>,
+    "completed_before": <ISO 8601 datetime or null>,
+    "completed_on": <YYYY-MM-DD or null>,
+    "tags": [<tag name string>, ...]
+  }},
   "error": <string describing why the request cannot be fulfilled, or null>
 }}
 
 Rules:
 - Set "operation" to "unknown" and populate "error" if the request is unclear or unsupported.
-- Only include keys in "fields" that are explicitly mentioned or clearly implied by the request.
-- If no fields are relevant (e.g. for delete or list), "fields" may be null or an empty object.
-- Resolve relative dates like "tomorrow" or "next week" using today's date above.
+- For "create", "update", "delete": populate "fields" with the relevant item attributes; omit "filter".
+- For "list" (requests to show, find, search, or list items): populate "filter" with the matching criteria; omit "fields" and "item_id".
+  - Only include filter fields that are explicitly mentioned or clearly implied.
+  - An empty filter ({{}}) returns all items.
+  - "state" and "priority" use OR semantics within each list.
+  - "tags" returns items carrying ANY of the named tags.
+  - Use "due_after"/"due_before" for relative ranges (e.g. "due in the next 3 days" → due_after=today, due_before=today+3days).
+  - Use "due_on"/"created_on"/"completed_on" for exact calendar days.
+  - If the user asks to see items "due" on or by a certain date, exclude items in the Done and Cancelled states.
+  - If the user asks to see items "due" by a certain date, set the "due_after" date to yesterday.
+  - If the user asks to see items "due" within a certain amount of time (like "due in one week" or "due within 10 days") set the "due_after" date to yesterday.
+- Resolve relative dates like "tomorrow", "next week", or "this week" using today's date above.
 - Return ONLY valid JSON — no markdown, no code fences, no explanation.
-- The "fields" value and its attributes should not be null.  If there are no attributes return fields with null values.
 - If the request contains a name it doesn't need to have an item_id.
 """.strip()
 
@@ -91,7 +115,8 @@ class AIItemFields(BaseModel):
 class AIResponse(BaseModel):
     operation: str
     item_id: Optional[int] = None
-    fields: AIItemFields
+    fields: Optional[AIItemFields] = None
+    filter: Optional[ItemFilter] = None
     error: Optional[str] = None
 
 
@@ -102,14 +127,16 @@ def parse_item_request(request: str, api_key: str) -> AIResponse:
         ValueError: if Claude returns a response that cannot be parsed as JSON.
     """
     client = anthropic.Anthropic(api_key=api_key)
+
     message = client.messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=512,
         system=_build_system_prompt(),
         messages=[{"role": "user", "content": request}],
     )
+
     raw = message.content[0].text
-    logger.debug("Claude raw response: %s", raw)
+
     # Strip markdown code fences if present (e.g. ```json ... ```)
     start = raw.find("{")
     end   = raw.rfind("}") + 1
@@ -117,7 +144,6 @@ def parse_item_request(request: str, api_key: str) -> AIResponse:
     try:
         parsed = json.loads(raw)
     except json.JSONDecodeError:
-        logger.warning("Claude returned non-JSON: %s", raw)
         raise ValueError(f"AI returned an unparseable response: {raw!r}")
     return AIResponse(**parsed)
 
@@ -149,6 +175,8 @@ def _handle_ai_response(
                 remove(session, item)
             else:
                 resp.error = "Item to delete not found"
+        case "list":
+            pass  # filter is carried in resp.filter; browser calls /items/search
         case _:
             resp.error = f"Unsupported operation: {resp.operation}"
         
@@ -171,4 +199,5 @@ async def ai_request(
         return _handle_ai_response(user, resp, session)
     
     except ValueError as exc:
+        print(str(exc))
         raise HTTPException(status_code=502, detail=str(exc))
