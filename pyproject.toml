@@ -16,9 +16,13 @@ dependencies = [
     "pyjwt[crypto]>=2.10.1",
     "python-multipart>=0.0.20",
     "casbin>=1.36.0",
+    "logfire[fastapi,sqlalchemy,httpx]>=3.0.0",
     "sqlmodel>=0.0.27",
     "typer>=0.20.0",
 ]
+
+[tool.logfire]
+ignore_no_config = true
 
 [tool.bandit]
 skips = ["B101"]
