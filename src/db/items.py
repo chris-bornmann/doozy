@@ -28,12 +28,14 @@ def find(session: Session, name: str, creator_id: int) -> Optional[Item]:
     return session.exec(stmt).first()
 
 
-def update(session: Session, item: Item, changes: dict) -> Item:
+def update(session: Session, item: Item, changes: dict, user_id: Optional[int] = None) -> Item:
     if 'state' in changes:
         if changes['state'] in (State.DONE, State.CANCELLED):
             changes['completed_on'] = dt.datetime.now(dt.timezone.utc)
+            changes['completed_by_id'] = user_id
         else:
             changes['completed_on'] = None
+            changes['completed_by_id'] = None
 
     for field, value in changes.items():
         setattr(item, field, value)
