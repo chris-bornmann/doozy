@@ -15,8 +15,8 @@ from db.item_orders import move_item
 from db.items import add, get, remove, update
 from db.main import get_session
 from db.models import Item, ItemTag, Tag, User, UserItemOrder
+from rbac.dependencies import require_permission
 from routers.forms import Item as FormItem, ItemFilter, PatchItem, Reorder
-from routers.users import get_current_user
 
 
 class SortBy(str, Enum):
@@ -57,7 +57,7 @@ _SORT_COLUMNS = {
 @router.get("/")
 async def read_items(
     *,
-    user: Annotated[User, Depends(get_current_user)],
+    user: Annotated[User, Depends(require_permission("items", "read"))],
     session: Session = Depends(get_session),
     sort_by: SortBy = Query(default=SortBy.created_on),
     reverse: bool = Query(default=False),
@@ -121,7 +121,7 @@ def _apply_filters(stmt, f: ItemFilter):
 @router.post('/search')
 async def search_items(
     *,
-    user: Annotated[User, Depends(get_current_user)],
+    user: Annotated[User, Depends(require_permission("items", "read"))],
     session: Session = Depends(get_session),
     sort_by: SortBy = Query(default=SortBy.created_on),
     reverse: bool = Query(default=False),
@@ -157,7 +157,7 @@ async def options_items_search() -> Response:
 
 @router.get("/{id}")
 async def read_item(
-    user: Annotated[User, Depends(get_current_user)],
+    user: Annotated[User, Depends(require_permission("items", "read"))],
     id: int,
     session: Session = Depends(get_session),
 ) -> Item:
@@ -171,7 +171,7 @@ async def read_item(
 
 @router.post('/')
 async def post_item(
-    user: Annotated[User, Depends(get_current_user)],
+    user: Annotated[User, Depends(require_permission("items", "write"))],
     data: Annotated[FormItem, Depends()],
     session: Session = Depends(get_session),
 ) -> dict[str, int]:
@@ -181,7 +181,7 @@ async def post_item(
 
 @router.patch('/{id}')
 async def patch_item(
-    user: Annotated[User, Depends(get_current_user)],
+    user: Annotated[User, Depends(require_permission("items", "write"))],
     id: int,
     data: PatchItem,
     session: Session = Depends(get_session),
@@ -196,7 +196,7 @@ async def patch_item(
 
 @router.post('/{id}/reorder')
 async def reorder_item(
-    user: Annotated[User, Depends(get_current_user)],
+    user: Annotated[User, Depends(require_permission("items", "write"))],
     id: int,
     data: Reorder,
     session: Session = Depends(get_session),
@@ -235,7 +235,7 @@ async def options_item_reorder(id: int) -> Response:
 
 @router.delete('/{id}')
 async def remove_item(
-    user: Annotated[User, Depends(get_current_user)],
+    user: Annotated[User, Depends(require_permission("items", "delete"))],
     id: int,
     session: Session = Depends(get_session),
 ) -> dict[str, bool]:
