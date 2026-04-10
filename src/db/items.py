@@ -23,8 +23,8 @@ def get(session: Session, id: int) -> Optional[Item]:
     return session.get(Item, id)
 
 
-def find(session: Session, name: str) -> Optional[Item]:
-    stmt = select(Item).where(Item.name == name)
+def find(session: Session, name: str, creator_id: int) -> Optional[Item]:
+    stmt = select(Item).where(Item.name == name, Item.creator_id == creator_id)
     return session.exec(stmt).first()
 
 

@@ -160,8 +160,10 @@ def _handle_ai_response(
         case "update":
             if resp.item_id:
                 item = get(session, resp.item_id)
+                if item is not None and item.creator_id != user.id:
+                    item = None
             elif resp.fields.name is not None:
-                item = find(session, resp.fields.name)
+                item = find(session, resp.fields.name, user.id)
             if item is not None:
                 update(session, item, resp.fields.model_dump(exclude_unset=True, exclude_none=True))
             else:
@@ -169,8 +171,10 @@ def _handle_ai_response(
         case "delete":
             if resp.item_id:
                 item = get(session, resp.item_id)
+                if item is not None and item.creator_id != user.id:
+                    item = None
             elif resp.fields.name is not None:
-                item = find(session, resp.fields.name)
+                item = find(session, resp.fields.name, user.id)
             if item is not None:
                 remove(session, item)
             else:
