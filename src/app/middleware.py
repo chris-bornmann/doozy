@@ -1,12 +1,24 @@
 import logging
 import time
-
+from urllib.parse import urlencode, urlparse, parse_qs
 from typing import Callable, Awaitable
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
 from fastapi import Request, Response
+
+
+_SENSITIVE_PARAMS = {"token", "code", "password"}
+
+
+def _redact_url(url) -> str:
+    parsed = urlparse(str(url))
+    if not parsed.query:
+        return str(url)
+    params = parse_qs(parsed.query, keep_blank_values=True)
+    redacted = {k: ["***"] if k in _SENSITIVE_PARAMS else v for k, v in params.items()}
+    return parsed._replace(query=urlencode(redacted, doseq=True)).geturl()
 
 
 class LoggingMiddleware(BaseHTTPMiddleware):
@@ -24,7 +36,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
         response: Response = await call_next(request)
-        logging.info(f"{request.method} {request.url} - {response.status_code}")
+        logging.info(f"{request.method} {_redact_url(request.url)} - {response.status_code}")
         
         return response
 
