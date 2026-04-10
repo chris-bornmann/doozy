@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 from typing import Annotated, Any
 
+import logfire
 import uvicorn
 
 from fastapi import Depends, FastAPI, HTTPException, Request, status
@@ -28,6 +29,9 @@ from urllib.parse import urlencode
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    logfire.configure(token=settings.LOGFIRE_TOKEN or None)
+    logfire.instrument_fastapi(app)
+    logfire.instrument_httpx()
     db_create()
     yield
     # Shutdown code
