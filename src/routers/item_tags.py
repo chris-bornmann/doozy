@@ -11,7 +11,7 @@ from sqlmodel import Session, select
 from app.security import oauth2_scheme
 from db.main import get_session
 from db.models import Item, ItemTag, Tag, User
-from routers.users import get_current_user
+from rbac.dependencies import require_permission
 
 
 class LookupBy(str, Enum):
@@ -34,7 +34,7 @@ router = APIRouter(
 
 @router.get("/", response_model=None)
 async def list_item_tags(
-    user: Annotated[User, Depends(get_current_user)],
+    user: Annotated[User, Depends(require_permission("item_tags", "read"))],
     by: LookupBy = Query(..., description="'item' to get tags for an item; 'tag' to get items for a tag"),
     id: int = Query(..., description="ID of the item or tag, depending on 'by'"),
     session: Session = Depends(get_session),
@@ -69,7 +69,7 @@ async def list_item_tags(
 
 @router.post("/")
 async def assign_tag(
-    user: Annotated[User, Depends(get_current_user)],
+    user: Annotated[User, Depends(require_permission("item_tags", "write"))],
     data: ItemTagForm,
     session: Session = Depends(get_session),
 ) -> ItemTag:
@@ -99,7 +99,7 @@ async def assign_tag(
 
 @router.delete("/")
 async def remove_tag_assignment(
-    user: Annotated[User, Depends(get_current_user)],
+    user: Annotated[User, Depends(require_permission("item_tags", "delete"))],
     data: ItemTagForm,
     session: Session = Depends(get_session),
 ) -> dict[str, bool]:
