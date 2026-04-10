@@ -45,4 +45,9 @@ def create_user(
     session.add(user)
     session.commit()
     session.refresh(user)
+
+    from db.models import UserRole
+    session.add(UserRole(user_id=user.id, role="user"))
+    session.commit()
+
     return user

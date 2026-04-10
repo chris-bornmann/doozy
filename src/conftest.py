@@ -19,6 +19,7 @@ from sqlmodel.pool import StaticPool
 from app.main import app
 from db.main import get_session
 from db.users import create_user
+from rbac.roles import assign_role
 from util.security import encode_token
 
 
@@ -47,6 +48,22 @@ def client_fixture(session: Session):
 def auth_headers_fixture(session: Session):
     """Returns (TestClient, User) with a valid JWT in the default headers."""
     user = create_user(session, username="testuser1", password="password1234")
+    token = encode_token({"sub": user.username})
+    app.dependency_overrides[get_session] = lambda: session
+    client = TestClient(
+        app,
+        raise_server_exceptions=True,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    yield client, user
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture(name="admin_client")
+def admin_client_fixture(session: Session):
+    """Returns (TestClient, User) authenticated as a user with the admin role."""
+    user = create_user(session, username="adminuser1", password="password1234")
+    assign_role(session, user.id, "admin")
     token = encode_token({"sub": user.username})
     app.dependency_overrides[get_session] = lambda: session
     client = TestClient(

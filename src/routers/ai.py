@@ -15,8 +15,8 @@ from constants import Priority, State
 from db.items import add, find, get, remove, update
 from db.main import get_session
 from db.models import Item, User
+from rbac.dependencies import require_permission
 from routers.forms import ItemFilter
-from routers.users import get_current_user
 
 
 logger = logging.getLogger(__name__)
@@ -189,7 +189,7 @@ def _handle_ai_response(
 
 @router.post('/request')
 async def ai_request(
-    user: Annotated[User, Depends(get_current_user)],
+    user: Annotated[User, Depends(require_permission("ai", "use"))],
     data: AIRequest,
     session: Annotated[Session, Depends(get_session)],
 ) -> AIResponse:

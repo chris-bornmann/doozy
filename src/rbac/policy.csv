@@ -1,0 +1,26 @@
+# admin: full access
+p, admin, users, read
+p, admin, tags, read
+p, admin, tags, write
+p, admin, tags, delete
+p, admin, items, read
+p, admin, items, write
+p, admin, items, delete
+p, admin, item_tags, read
+p, admin, item_tags, write
+p, admin, item_tags, delete
+p, admin, ai, use
+p, admin, rbac, read
+p, admin, rbac, write
+p, admin, rbac, delete
+
+# user: own items + read tags, no tag management
+p, user, items, read
+p, user, items, write
+p, user, items, delete
+p, user, item_tags, read
+p, user, item_tags, write
+p, user, item_tags, delete
+p, user, tags, read
+# p, user, ai, use
+p, user, users, read
