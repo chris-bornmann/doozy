@@ -22,5 +22,5 @@ p, user, item_tags, read
 p, user, item_tags, write
 p, user, item_tags, delete
 p, user, tags, read
-# p, user, ai, use
+p, user, ai, use
 p, user, users, read
