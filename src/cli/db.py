@@ -8,6 +8,7 @@ from sqlmodel import Session, SQLModel
 
 from db.main import engine
 from db.models import Item, Priority, State, User
+from rbac.roles import assign_role
 from util.security import get_password_hash
 
 
@@ -23,6 +24,13 @@ def _create_users(session: Session) -> list[User]:
     session.add(user_2)
     session.add(user_3)
     session.commit()
+    session.refresh(user_1)
+    session.refresh(user_2)
+    session.refresh(user_3)
+
+    assign_role(session, user_1.id, "admin")
+    assign_role(session, user_2.id, "user")
+    assign_role(session, user_3.id, "user")
 
     return [user_1, user_2, user_3]
 

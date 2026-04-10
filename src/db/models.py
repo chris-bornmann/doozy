@@ -100,6 +100,17 @@ class UserItemOrder(SQLModel, table=True):
     order_key: str = Field(index=True)
 
 
+class UserRole(SQLModel, table=True):
+    """Maps a user to a named role for RBAC enforcement."""
+
+    __tablename__ = 'user_roles'
+    __table_args__ = (sa.UniqueConstraint('user_id', 'role'),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key='users.id', index=True)
+    role: str = Field(max_length=32, index=True)
+
+
 class Item(SQLModel, table=True):
 
     __tablename__ = 'items'
