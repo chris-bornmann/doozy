@@ -62,6 +62,14 @@ class FriendshipRead(BaseModel):
     updated_on: Optional[datetime] = None
 
 
+class GroupRead(BaseModel):
+    id: int
+    name: str
+    owner: str          # username of the owner
+    members: list[str]  # usernames of all members (including owner)
+    created_on: datetime
+
+
 class User(BaseModel):
     
     # Should be using the same constraints as the DB model.
