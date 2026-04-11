@@ -7,7 +7,7 @@ from typing import Optional
 import sqlalchemy as sa
 from sqlmodel import Field, SQLModel, Relationship
 
-from constants import Priority, State, UserState
+from constants import Priority, State, UserState, FriendshipStatus
 
 
 def _make_enum_type(enum_class):
@@ -25,9 +25,10 @@ def _make_enum_type(enum_class):
     return _EnumType
 
 
-PriorityType  = _make_enum_type(Priority)
-StateType     = _make_enum_type(State)
-UserStateType = _make_enum_type(UserState)
+PriorityType        = _make_enum_type(Priority)
+StateType           = _make_enum_type(State)
+UserStateType       = _make_enum_type(UserState)
+FriendshipStatusType = _make_enum_type(FriendshipStatus)
 
 
 class UserNoSecret(SQLModel):
@@ -113,6 +114,29 @@ class UserRole(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key='users.id', index=True)
     role: str = Field(max_length=32, index=True)
+
+
+class Friendship(SQLModel, table=True):
+    """Tracks friend requests and accepted friendships between users."""
+
+    __tablename__ = 'friendships'
+    __table_args__ = (sa.UniqueConstraint('requester_id', 'addressee_id'),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    requester_id: int = Field(foreign_key='users.id', index=True)
+    addressee_id: int = Field(foreign_key='users.id', index=True)
+    status: FriendshipStatus = Field(
+        default=FriendshipStatus.PENDING,
+        sa_column=sa.Column(FriendshipStatusType(), nullable=False),
+    )
+    created_on: datetime = Field(
+        default_factory=lambda: dt.datetime.now(dt.timezone.utc),
+        sa_column=sa.Column(sa.DateTime(timezone=True))
+    )
+    updated_on: Optional[datetime] = Field(
+        default=None,
+        sa_column_kwargs={"onupdate": lambda: dt.datetime.now(dt.timezone.utc)}
+    )
 
 
 class Item(SQLModel, table=True):

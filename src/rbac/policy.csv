@@ -13,6 +13,9 @@ p, admin, ai, use
 p, admin, rbac, read
 p, admin, rbac, write
 p, admin, rbac, delete
+p, admin, friendships, read
+p, admin, friendships, write
+p, admin, friendships, delete
 
 # user: own items + read tags, no tag management
 p, user, items, read
@@ -24,3 +27,6 @@ p, user, item_tags, delete
 p, user, tags, read
 p, user, ai, use
 p, user, users, read
+p, user, friendships, read
+p, user, friendships, write
+p, user, friendships, delete

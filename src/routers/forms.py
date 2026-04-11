@@ -5,7 +5,7 @@ from typing import Annotated, Any, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
-from constants import Priority, State
+from constants import Priority, State, FriendshipStatus
 
 
 class Item(BaseModel):
@@ -51,6 +51,15 @@ class ItemFilter(BaseModel):
     completed_before: Optional[datetime] = None
     completed_on: Optional[date] = None
     tags: list[str] = []
+
+
+class FriendshipRead(BaseModel):
+    id: int
+    requester: str  # username of the requester
+    addressee: str  # username of the addressee
+    status: FriendshipStatus
+    created_on: datetime
+    updated_on: Optional[datetime] = None
 
 
 class User(BaseModel):
