@@ -19,3 +19,9 @@ class UserState(int, Enum):
     NEW = 0
     AUTHENTICATED = 1
     DISABLED = 2
+
+
+class FriendshipStatus(int, Enum):
+    PENDING  = 0
+    ACCEPTED = 1
+    DECLINED = 2
