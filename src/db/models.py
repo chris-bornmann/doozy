@@ -139,6 +139,30 @@ class Friendship(SQLModel, table=True):
     )
 
 
+class Group(SQLModel, table=True):
+    """A named collection of friends owned by a single user."""
+
+    __tablename__ = 'groups'
+    __table_args__ = (sa.UniqueConstraint('owner_id', 'name'),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str = Field(max_length=64, min_length=1)
+    owner_id: int = Field(foreign_key='users.id', index=True)
+    created_on: datetime = Field(
+        default_factory=lambda: dt.datetime.now(dt.timezone.utc),
+        sa_column=sa.Column(sa.DateTime(timezone=True))
+    )
+
+
+class GroupMember(SQLModel, table=True):
+    """Junction table linking users to groups."""
+
+    __tablename__ = 'group_members'
+
+    group_id: int = Field(foreign_key='groups.id', primary_key=True)
+    user_id: int = Field(foreign_key='users.id', primary_key=True)
+
+
 class Item(SQLModel, table=True):
 
     __tablename__ = 'items'
