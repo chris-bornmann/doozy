@@ -538,6 +538,60 @@ def test_patch_non_state_field_does_not_change_completed_on(auth_headers):
     assert data["completed_on"] == completed_on
 
 
+# ---------------------------------------------------------------------------
+# completed_by_id auto-management
+# ---------------------------------------------------------------------------
+
+def test_new_item_has_no_completed_by(auth_headers):
+    client, _ = auth_headers
+    item_id = client.post("/items/", params={"name": "No completed by yet!"}).json()["id"]
+    data = client.get(f"/items/{item_id}").json()
+    assert data["completed_by_id"] is None
+
+
+def test_patch_state_to_done_sets_completed_by(auth_headers):
+    client, user = auth_headers
+    item_id = client.post("/items/", params={"name": "Done sets completed by!"}).json()["id"]
+    response = client.patch(f"/items/{item_id}", json={"state": State.DONE})
+    assert response.status_code == 200
+    assert response.json()["completed_by_id"] == user.id
+
+
+def test_patch_state_to_cancelled_sets_completed_by(auth_headers):
+    client, user = auth_headers
+    item_id = client.post("/items/", params={"name": "Cancelled completed by!"}).json()["id"]
+    response = client.patch(f"/items/{item_id}", json={"state": State.CANCELLED})
+    assert response.status_code == 200
+    assert response.json()["completed_by_id"] == user.id
+
+
+def test_patch_state_to_in_progress_clears_completed_by(auth_headers):
+    client, _ = auth_headers
+    item_id = client.post("/items/", params={"name": "IP clears completed by!"}).json()["id"]
+    client.patch(f"/items/{item_id}", json={"state": State.DONE})
+    response = client.patch(f"/items/{item_id}", json={"state": State.IN_PROGRESS})
+    assert response.status_code == 200
+    assert response.json()["completed_by_id"] is None
+
+
+def test_patch_state_to_new_clears_completed_by(auth_headers):
+    client, _ = auth_headers
+    item_id = client.post("/items/", params={"name": "New clears completed by!"}).json()["id"]
+    client.patch(f"/items/{item_id}", json={"state": State.CANCELLED})
+    response = client.patch(f"/items/{item_id}", json={"state": State.NEW})
+    assert response.status_code == 200
+    assert response.json()["completed_by_id"] is None
+
+
+def test_patch_non_state_field_does_not_change_completed_by(auth_headers):
+    client, user = auth_headers
+    item_id = client.post("/items/", params={"name": "No state no by change!!"}).json()["id"]
+    client.patch(f"/items/{item_id}", json={"state": State.DONE})
+    client.patch(f"/items/{item_id}", json={"name": "No state no by change!a"})
+    data = client.get(f"/items/{item_id}").json()
+    assert data["completed_by_id"] == user.id
+
+
 def test_sort_by_state(auth_headers, session):
     client, user = auth_headers
     done      = Item(name="Done item aaaaaaaa", creator_id=user.id, state=State.DONE)
