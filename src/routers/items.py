@@ -191,7 +191,7 @@ async def patch_item(
         raise HTTPException(status_code=404, detail="Item not found")
     if item.creator_id != user.id:
         raise HTTPException(status_code=403, detail="Not the creator")
-    return update(session, item, data.model_dump(include=data.model_fields_set))
+    return update(session, item, data.model_dump(include=data.model_fields_set), user_id=user.id)
 
 
 @router.post('/{id}/reorder')

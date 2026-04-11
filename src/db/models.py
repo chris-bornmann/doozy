@@ -53,7 +53,11 @@ class User(UserNoSecret, table=True):
 
     password: str = Field(max_length=128, min_length=10)
 
-    items: list['Item'] = Relationship(back_populates='creator', cascade_delete=True)
+    items: list['Item'] = Relationship(
+        back_populates='creator',
+        cascade_delete=True,
+        sa_relationship_kwargs={"foreign_keys": "[Item.creator_id]"},
+    )
 
 
 class UserVerification(SQLModel, table=True):
@@ -131,7 +135,10 @@ class Item(SQLModel, table=True):
     )
 
     creator_id: int = Field(foreign_key=User.__tablename__ + '.id')
-    creator: User = Relationship(back_populates='items')
+    creator: User = Relationship(
+        back_populates='items',
+        sa_relationship_kwargs={"foreign_keys": "[Item.creator_id]"},
+    )
 
     created_on: datetime = Field(
         default_factory=lambda: dt.datetime.now(dt.timezone.utc),
@@ -144,6 +151,11 @@ class Item(SQLModel, table=True):
     completed_on: Optional[datetime] = Field(
         default=None,
         sa_column=sa.Column(sa.DateTime(timezone=True), nullable=True),
+    )
+    completed_by_id: Optional[int] = Field(
+        default=None,
+        foreign_key=User.__tablename__ + '.id',
+        nullable=True,
     )
     updated_on: Optional[datetime] = Field(
         default=None,
