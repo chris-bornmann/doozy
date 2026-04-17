@@ -7,7 +7,8 @@ from typing import Annotated, Optional
 
 import anthropic
 import openai
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from app.rate_limit import limiter
 from pydantic import BaseModel, Field, field_validator
 from sqlmodel import Session, case
 
@@ -22,6 +23,7 @@ from routers.forms import ItemFilter
 
 
 logger = logging.getLogger(__name__)
+_settings = Settings()
 
 router = APIRouter(
     prefix="/ai",
@@ -205,7 +207,9 @@ def _handle_ai_response(
 
 
 @router.post('/request')
+@limiter.limit(_settings.RATE_LIMIT_AI)
 async def ai_request(
+    request: Request,
     user: Annotated[User, Depends(require_permission("ai", "use"))],
     data: AIRequest,
     session: Annotated[Session, Depends(get_session)],
@@ -225,7 +229,9 @@ async def ai_request(
 
 
 @router.post('/voice')
+@limiter.limit(_settings.RATE_LIMIT_AI)
 async def ai_voice_request(
+    request: Request,
     user: Annotated[User, Depends(require_permission("ai", "use"))],
     session: Annotated[Session, Depends(get_session)],
     audio: UploadFile = File(...),

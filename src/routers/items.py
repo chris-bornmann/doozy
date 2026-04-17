@@ -3,7 +3,11 @@ import datetime as dt
 from enum import Enum
 from typing import Annotated, Optional, TypeVar
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from app.config import Settings
+from app.rate_limit import limiter
+
+_settings = Settings()
 from fastapi_pagination import Page
 from sqlalchemy import and_, asc, desc, nulls_last, nullsfirst
 from sqlmodel import Session, select
@@ -161,7 +165,9 @@ def _to_item_reads(session: Session, items: list[Item]) -> list[ItemRead]:
 
 
 @router.get("/")
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def read_items(
+    request: Request,
     *,
     user: Annotated[User, Depends(require_permission("items", "read"))],
     session: Session = Depends(get_session),
@@ -226,7 +232,9 @@ def _apply_filters(stmt, f: ItemFilter):
 
 
 @router.post('/search')
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def search_items(
+    request: Request,
     *,
     user: Annotated[User, Depends(require_permission("items", "read"))],
     session: Session = Depends(get_session),
@@ -258,7 +266,9 @@ async def options_items_search() -> Response:
 
 
 @router.get("/{id}")
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def read_item(
+    request: Request,
     user: Annotated[User, Depends(require_permission("items", "read"))],
     id: int,
     session: Session = Depends(get_session),
@@ -273,7 +283,9 @@ async def read_item(
 
 
 @router.post('/')
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def post_item(
+    request: Request,
     user: Annotated[User, Depends(require_permission("items", "write"))],
     data: Annotated[FormItem, Depends()],
     session: Session = Depends(get_session),
@@ -283,7 +295,9 @@ async def post_item(
 
 
 @router.patch('/{id}')
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def patch_item(
+    request: Request,
     user: Annotated[User, Depends(require_permission("items", "write"))],
     id: int,
     data: PatchItem,
@@ -302,7 +316,9 @@ async def patch_item(
 
 
 @router.post('/{id}/reorder')
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def reorder_item(
+    request: Request,
     user: Annotated[User, Depends(require_permission("items", "write"))],
     id: int,
     data: Reorder,
@@ -328,7 +344,9 @@ async def reorder_item(
 
 
 @router.post('/{id}/assign/user/{username}')
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def assign_to_user(
+    request: Request,
     user: Annotated[User, Depends(require_permission("items", "write"))],
     id: int,
     username: str,
@@ -362,7 +380,9 @@ async def assign_to_user(
 
 
 @router.post('/{id}/assign/group/{group_id}')
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def assign_to_group(
+    request: Request,
     user: Annotated[User, Depends(require_permission("items", "write"))],
     id: int,
     group_id: int,
@@ -387,7 +407,9 @@ async def assign_to_group(
 
 
 @router.delete('/{id}/assign/group')
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def unassign_group(
+    request: Request,
     user: Annotated[User, Depends(require_permission("items", "write"))],
     id: int,
     session: Session = Depends(get_session),
@@ -435,7 +457,9 @@ async def options_item_reorder(id: int) -> Response:
 
 
 @router.delete('/{id}')
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def remove_item(
+    request: Request,
     user: Annotated[User, Depends(require_permission("items", "delete"))],
     id: int,
     session: Session = Depends(get_session),
