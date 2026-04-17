@@ -23,6 +23,14 @@ from rbac.roles import assign_role
 from util.security import encode_token
 
 
+@pytest.fixture(autouse=True)
+def reset_rate_limiter():
+    """Clear in-memory rate limit counters between tests to prevent bleed-through."""
+    from app.rate_limit import limiter
+    limiter._storage.reset()
+    yield
+
+
 @pytest.fixture(name="session")
 def session_fixture():
     engine = create_engine(

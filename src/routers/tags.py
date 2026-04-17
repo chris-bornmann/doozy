@@ -1,7 +1,11 @@
 
 from typing import Annotated, Optional, TypeVar
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from app.config import Settings
+from app.rate_limit import limiter
+
+_settings = Settings()
 from fastapi_pagination import Page
 from fastapi_pagination.customization import CustomizedPage, UseParamsFields
 from fastapi_pagination.ext.sqlalchemy import paginate
@@ -43,7 +47,9 @@ class TagForm(BaseModel):
 # of an item can see their items even if they are no longer the owner or in
 # the group.
 @router.post('/')
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def create_tag(
+    request: Request,
     _: Annotated[User, Depends(require_permission("tags", "write"))],
     data: TagForm,
     session: Session = Depends(get_session),
@@ -58,7 +64,9 @@ async def create_tag(
 
 
 @router.get('/')
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def list_tags(
+    request: Request,
     session: Session = Depends(get_session),
     match: Optional[str] = Query(default=None),
 ) -> CustomPage[Tag]:
@@ -72,7 +80,9 @@ async def list_tags(
 # not good.  Users should not be able to delete tags used by other people
 # because suddenly their items will no longer have the expected tags.
 @router.delete('/{id}')
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def delete_tag(
+    request: Request,
     _: Annotated[User, Depends(require_permission("tags", "delete"))],
     id: int,
     session: Session = Depends(get_session),

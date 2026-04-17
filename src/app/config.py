@@ -34,4 +34,11 @@ class Settings(BaseSettings):
     VERIFICATION_EXPIRE_MINUTES: int = 15
     VERIFICATION_URL: str = "http://localhost:8000/"
 
+    # Rate limiting — SlowAPI format: "N/period" e.g. "100/minute", "10/second"
+    # Override any of these in .env to tune limits for your deployment.
+    RATE_LIMIT_DEFAULT: str = "60/minute"   # general authenticated endpoints
+    RATE_LIMIT_AUTH: str = "5/minute"       # login, register, OAuth, email verify
+    RATE_LIMIT_AI: str = "6/minute"         # AI endpoints (direct Anthropic/OpenAI cost)
+    RATE_LIMIT_HEALTH: str = "60/minute"    # health check (unauthenticated)
+
     model_config: SettingsConfigDict = SettingsConfigDict(env_file=find_dotenv())

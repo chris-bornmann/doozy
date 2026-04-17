@@ -20,6 +20,7 @@ dependencies = [
     "python-multipart>=0.0.20",
     "casbin>=1.36.0",
     "logfire[fastapi,sqlalchemy,httpx]>=3.0.0",
+    "slowapi>=0.1.9",
     "sqlmodel>=0.0.27",
     "typer>=0.20.0",
 ]
