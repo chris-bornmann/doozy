@@ -5,7 +5,7 @@ from typing import Annotated, Optional, TypeVar
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi_pagination import Page
-from sqlalchemy import and_, asc, delete, desc, nulls_last, nullsfirst
+from sqlalchemy import and_, asc, desc, nulls_last, nullsfirst
 from sqlmodel import Session, select
 from fastapi_pagination.ext.sqlalchemy import paginate
 from fastapi_pagination.customization import CustomizedPage, UseParamsFields
@@ -17,7 +17,7 @@ from constants import FriendshipStatus
 from db import friendships as db_friends
 from db import groups as db_groups
 from db.item_orders import move_item
-from db.items import add, create_item, get, remove, update
+from db.items import add, create_item, delete_item, get, update
 from db.main import get_session
 from db.models import GroupMember, Item, ItemOwnership, ItemTag, Tag, User, UserItemOrder
 from db.users import get_by_username
@@ -446,7 +446,5 @@ async def remove_item(
     ownership = _get_ownership(session, id)
     if ownership.user_id != user.id:
         raise HTTPException(status_code=403, detail="Only the owner can delete this item")
-    session.exec(delete(ItemTag).where(ItemTag.item_id == id))
-    session.exec(delete(ItemOwnership).where(ItemOwnership.item_id == id))
-    remove(session, item)
+    delete_item(session, item)
     return {'ok': True}

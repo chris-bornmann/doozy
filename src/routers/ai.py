@@ -14,7 +14,7 @@ from sqlmodel import Session, case
 from app.config import Settings
 from app.security import oauth2_scheme
 from constants import Priority, State
-from db.items import add, find, get, remove, update
+from db.items import create_item, delete_item, find, get, update
 from db.main import get_session
 from db.models import Item, User
 from rbac.dependencies import require_permission
@@ -121,6 +121,7 @@ class AIResponse(BaseModel):
     fields: Optional[AIItemFields] = None
     filter: Optional[ItemFilter] = None
     error: Optional[str] = None
+    transcript: Optional[str] = None
 
 
 def transcribe_audio(audio_bytes: bytes, filename: str, api_key: str) -> str:
@@ -172,7 +173,7 @@ def _handle_ai_response(
     item: Optional[Item] = None
     match resp.operation:
         case "create":
-            add(session, Item(creator_id=user.id, **resp.fields.model_dump(exclude_unset=True, exclude_none=True)))          
+            create_item(session, user.id, **resp.fields.model_dump(exclude_unset=True, exclude_none=True))          
         case "update":
             if resp.item_id:
                 item = get(session, resp.item_id)
@@ -192,7 +193,7 @@ def _handle_ai_response(
             elif resp.fields.name is not None:
                 item = find(session, resp.fields.name, user.id)
             if item is not None:
-                remove(session, item)
+                delete_item(session, item)
             else:
                 resp.error = "Item to delete not found"
         case "list":
@@ -247,6 +248,7 @@ async def ai_voice_request(
 
     try:
         resp = parse_item_request(transcript, settings.ANTHROPIC_API_KEY)
+        resp.transcript = transcript
         if resp.error:
             return resp
         return _handle_ai_response(user, resp, session)
