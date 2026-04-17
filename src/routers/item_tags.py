@@ -12,6 +12,7 @@ from app.security import oauth2_scheme
 from db.main import get_session
 from db.models import Item, ItemTag, Tag, User
 from rbac.dependencies import require_permission
+from routers.items import _can_see, _get_ownership, _owned_by
 
 
 class LookupBy(str, Enum):
@@ -44,8 +45,9 @@ async def list_item_tags(
         item = session.get(Item, id)
         if item is None:
             raise HTTPException(status_code=404, detail="Item not found")
-        if item.creator_id != user.id:
-            raise HTTPException(status_code=403, detail="Not the creator")
+        ownership = _get_ownership(session, id)
+        if not _can_see(session, user.id, item, ownership):
+            raise HTTPException(status_code=403, detail="Access denied")
         stmt = (
             select(Tag)
             .join(ItemTag, ItemTag.tag_id == Tag.id)
@@ -57,11 +59,11 @@ async def list_item_tags(
         tag = session.get(Tag, id)
         if tag is None:
             raise HTTPException(status_code=404, detail="Tag not found")
+        # Return only items visible to the user, using the same criteria as the items endpoints.
         stmt = (
-            select(Item)
+            _owned_by(user.id)
             .join(ItemTag, ItemTag.item_id == Item.id)
             .where(ItemTag.tag_id == id)
-            .where(Item.creator_id == user.id)
             .order_by(Item.name)
         )
         return paginate(session, stmt, params=params)

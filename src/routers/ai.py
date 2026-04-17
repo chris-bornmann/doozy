@@ -1,11 +1,13 @@
 
+import io
 import json
 import logging
 from datetime import date, datetime
 from typing import Annotated, Optional
 
 import anthropic
-from fastapi import APIRouter, Depends, HTTPException
+import openai
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field, field_validator
 from sqlmodel import Session, case
 
@@ -120,6 +122,19 @@ class AIResponse(BaseModel):
     error: Optional[str] = None
 
 
+def transcribe_audio(audio_bytes: bytes, filename: str, api_key: str) -> str:
+    """Send audio bytes to OpenAI Whisper and return the transcript."""
+    client = openai.OpenAI(api_key=api_key)
+    # Whisper needs a file-like object; the .name hint tells it the audio format.
+    audio_file = io.BytesIO(audio_bytes)
+    audio_file.name = filename
+    transcript = client.audio.transcriptions.create(
+        model="whisper-1",
+        file=audio_file,
+    )
+    return transcript.text
+
+
 def parse_item_request(request: str, api_key: str) -> AIResponse:
     """Call Claude to parse a natural language item request.
 
@@ -204,4 +219,32 @@ async def ai_request(
     
     except ValueError as exc:
         print(str(exc))
+        raise HTTPException(status_code=502, detail=str(exc))
+
+
+@router.post('/voice')
+async def ai_voice_request(
+    user: Annotated[User, Depends(require_permission("ai", "use"))],
+    session: Annotated[Session, Depends(get_session)],
+    audio: UploadFile = File(...),
+) -> AIResponse:
+    settings = Settings()
+    if not settings.ANTHROPIC_API_KEY:
+        raise HTTPException(status_code=503, detail="AI features are not configured")
+    if not settings.OPENAI_API_KEY:
+        raise HTTPException(status_code=503, detail="Voice features are not configured")
+
+    audio_bytes = await audio.read()
+    try:
+        transcript = transcribe_audio(audio_bytes, audio.filename or "audio.webm", settings.OPENAI_API_KEY)
+    except Exception as exc:
+        logger.error("Transcription failed: %s", exc)
+        raise HTTPException(status_code=502, detail="Transcription failed")
+
+    try:
+        resp = parse_item_request(transcript, settings.ANTHROPIC_API_KEY)
+        if resp.error:
+            return resp
+        return _handle_ai_response(user, resp, session)
+    except ValueError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
