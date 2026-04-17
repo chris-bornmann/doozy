@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from db.main import db_create, get_session
 from app.middleware import LoggingMiddleware, TimingMiddleware
-from routers import ai, friendships, groups, item_tags, items, rbac, tags, users, verification
+from routers import ai, friendships, groups, health, item_tags, items, rbac, tags, users, verification
 from util.security import authenticate_user, encode_token, Token
 
 # configuration and oauth-related helpers
@@ -81,6 +81,7 @@ app = FastAPI(
 app.add_middleware(LoggingMiddleware, file_name="/tmp/doozy.log")
 app.add_middleware(TimingMiddleware)
 
+app.include_router(health.router)
 app.include_router(ai.router)
 app.include_router(friendships.router)
 app.include_router(groups.router)

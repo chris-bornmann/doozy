@@ -30,6 +30,7 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
+# TODO: Add completed_by.  Maybe group?
 _SYSTEM_PROMPT_TEMPLATE = """
 Today's date is {today}.
 
@@ -164,9 +165,9 @@ def parse_item_request(request: str, api_key: str) -> AIResponse:
 
 
 def _handle_ai_response(
-        user: User,
-        resp: AIResponse,
-        session: Annotated[Session, Depends(get_session)]) -> AIResponse:
+    user: User,
+    resp: AIResponse,
+    session: Annotated[Session, Depends(get_session)]) -> AIResponse:
     
     item: Optional[Item] = None
     match resp.operation:
@@ -228,6 +229,9 @@ async def ai_voice_request(
     session: Annotated[Session, Depends(get_session)],
     audio: UploadFile = File(...),
 ) -> AIResponse:
+    """Takes an audio file and sends it to be converted to text, and then"""
+    """sends the text to be converted to an AIResponse."""
+
     settings = Settings()
     if not settings.ANTHROPIC_API_KEY:
         raise HTTPException(status_code=503, detail="AI features are not configured")

@@ -34,6 +34,14 @@ class TagForm(BaseModel):
     name: str = Field(max_length=16, min_length=1)
 
 
+# TODO
+# Tags are global.  That is going to be problematic if there are a lot of
+# users creating tags.  Tags could be user or group specific.  If a user-
+# specific tag was assigned then it would only show up for users who also
+# "owned" that tag.  If a group-specific tag was assigned it would appear
+# for anyone in the group.  That leaves a hole because today the creator
+# of an item can see their items even if they are no longer the owner or in
+# the group.
 @router.post('/')
 async def create_tag(
     _: Annotated[User, Depends(require_permission("tags", "write"))],
@@ -60,6 +68,9 @@ async def list_tags(
     return paginate(session, stmt)
 
 
+# TODO: This allows anyone to delete a tag.  Tags are global, so that's
+# not good.  Users should not be able to delete tags used by other people
+# because suddenly their items will no longer have the expected tags.
 @router.delete('/{id}')
 async def delete_tag(
     _: Annotated[User, Depends(require_permission("tags", "delete"))],

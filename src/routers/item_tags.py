@@ -33,6 +33,9 @@ router = APIRouter(
 )
 
 
+# The "..." in the Query means that the argument is required.  There is no
+# default and something must be provided.  The Query itself represents
+# parameters that follow the "?" on a URL.
 @router.get("/", response_model=None)
 async def list_item_tags(
     user: Annotated[User, Depends(require_permission("item_tags", "read"))],
@@ -41,6 +44,7 @@ async def list_item_tags(
     session: Session = Depends(get_session),
     params: Params = Depends(),
 ) -> Page[Tag] | Page[Item]:
+    # TODO: This should probably be two helper functions.
     if by == LookupBy.item:
         item = session.get(Item, id)
         if item is None:
