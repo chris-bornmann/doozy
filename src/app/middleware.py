@@ -27,7 +27,12 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         app: ASGIApp,
         file_name: str
     ):
-        logging.basicConfig(filename=file_name, level=logging.INFO)
+        logging.basicConfig(
+            filename=file_name,
+            level=logging.INFO,
+            format="%(asctime)s %(message)s",
+            datefmt="%Y%m%d",
+        )
         super().__init__(app)
 
     async def dispatch(

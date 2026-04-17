@@ -25,6 +25,7 @@ def create_item(session: Session, creator_id: int, **kwargs) -> int:
 
 
 def add(session: Session, item: Item) -> int:
+    """Used by CLI interface."""
     session.add(item)
     session.commit()
     session.refresh(item)
