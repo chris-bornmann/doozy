@@ -1,11 +1,27 @@
 from sqlmodel import Session
 
 from db.users import create_user
+from rbac.roles import get_roles
 
 
 # ---------------------------------------------------------------------------
 # GET /users/
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# POST /users/
+# ---------------------------------------------------------------------------
+
+def test_create_user_assigns_user_role(client, session):
+    response = client.post("/users/", json={
+        "username": "brandnewuser",
+        "password": "password1234",
+        "full_name": None,
+    })
+    assert response.status_code == 200
+    user_id = response.json()["id"]
+    assert "user" in get_roles(session, user_id)
+
 
 def test_read_users_returns_list(auth_headers):
     client, _ = auth_headers
