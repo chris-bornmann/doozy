@@ -5,8 +5,9 @@ import ssl
 import aiosmtplib
 import certifi
 from email.mime.text import MIMEText
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
+from app.rate_limit import limiter
 from sqlmodel import Session
 
 from app.config import Settings
@@ -64,7 +65,9 @@ async def send_verification_email(user: User, raw_token: str) -> None:
 
 
 @router.get("/")
+@limiter.limit(settings.RATE_LIMIT_AUTH)
 async def verify_token(
+    request: Request,
     token: str,
     session: Session = Depends(get_session),
 ) -> RedirectResponse:

@@ -1,7 +1,11 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from app.config import Settings
+from app.rate_limit import limiter
+
+_settings = Settings()
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import paginate
 from sqlmodel import Session
@@ -48,7 +52,9 @@ def _get_or_404(session: Session, friendship_id: int):
 
 # TODO: Add additional responses for all the status codes (400, 409, etc).
 @router.post("/request/{username}", status_code=201)
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def request_friendship(
+    request: Request,
     username: str,
     user: Annotated[User, Depends(require_permission("friendships", "write"))],
     session: Session = Depends(get_session),
@@ -66,7 +72,9 @@ async def request_friendship(
 
 
 @router.get("/")
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def list_friends(
+    request: Request,
     user: Annotated[User, Depends(require_permission("friendships", "read"))],
     session: Session = Depends(get_session),
 ) -> Page[UserNoSecret]:
@@ -78,7 +86,9 @@ async def list_friends(
 
 
 @router.get("/pending")
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def list_pending(
+    request: Request,
     user: Annotated[User, Depends(require_permission("friendships", "read"))],
     session: Session = Depends(get_session),
 ) -> Page[FriendshipRead]:
@@ -90,7 +100,9 @@ async def list_pending(
 
 
 @router.get("/sent")
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def list_sent(
+    request: Request,
     user: Annotated[User, Depends(require_permission("friendships", "read"))],
     session: Session = Depends(get_session),
 ) -> Page[FriendshipRead]:
@@ -102,7 +114,9 @@ async def list_sent(
 
 
 @router.post("/{id}/accept")
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def accept_friendship(
+    request: Request,
     id: int,
     user: Annotated[User, Depends(require_permission("friendships", "write"))],
     session: Session = Depends(get_session),
@@ -117,7 +131,9 @@ async def accept_friendship(
 
 
 @router.post("/{id}/decline")
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def decline_friendship(
+    request: Request,
     id: int,
     user: Annotated[User, Depends(require_permission("friendships", "write"))],
     session: Session = Depends(get_session),
@@ -132,7 +148,9 @@ async def decline_friendship(
 
 
 @router.delete("/{id}")
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def remove_friendship(
+    request: Request,
     id: int,
     user: Annotated[User, Depends(require_permission("friendships", "delete"))],
     session: Session = Depends(get_session),

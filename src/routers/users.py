@@ -1,7 +1,8 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from app.rate_limit import limiter
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi_pagination import Page
 
@@ -11,6 +12,8 @@ from fastapi_pagination.ext.sqlalchemy import paginate
 
 from app.config import Settings
 from app.security import oauth2_scheme
+
+_settings = Settings()
 from constants import UserState
 from db.main import get_session
 from db.models import Item, User, UserNoSecret
@@ -75,7 +78,9 @@ async def get_current_active_user(
 
 
 @router.get("/")
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def read_users(
+    request: Request,
     *,
     session: Session = Depends(get_session),
 ) -> Page[UserNoSecret]:
@@ -84,14 +89,18 @@ async def read_users(
 
 
 @router.get('/me')
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def read_user_me(
-    user: Annotated[UserNoSecret, Depends(get_current_active_user)]
+    request: Request,
+    user: Annotated[UserNoSecret, Depends(get_current_active_user)],
 ) -> UserNoSecret:
     return UserNoSecret(**user.model_dump())
 
 
 @router.get("/{id}")
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def read_user(
+    request: Request,
     id: int,
     session: Session = Depends(get_session),
 ) -> UserNoSecret:
@@ -122,7 +131,9 @@ async def options_user_items(id: int) -> Response:
 
 
 @public_router.post('/')
+@limiter.limit(_settings.RATE_LIMIT_AUTH)
 async def create_user(
+    request: Request,
     data: UserForm,
     session: Session = Depends(get_session),
 ) -> UserNoSecret:
@@ -149,8 +160,10 @@ async def create_user(
 
 
 @router.get('/{id}/items')
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def read_user_items(
+    request: Request,
     id: int,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
 ) -> Page[Item]:
     return paginate(session, select(Item).where(Item.creator_id == id))

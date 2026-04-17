@@ -1,7 +1,11 @@
 from collections import defaultdict
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from app.config import Settings
+from app.rate_limit import limiter
+
+_settings = Settings()
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
@@ -35,7 +39,9 @@ class UserRoleForm(BaseModel):
 
 
 @router.get("/")
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def list_user_roles(
+    request: Request,
     _: Annotated[User, Depends(require_permission("rbac", "read"))],
     session: Session = Depends(get_session),
 ) -> list[UserRolesSummary]:
@@ -56,7 +62,9 @@ async def list_user_roles(
 
 
 @router.get("/me/permissions")
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def get_my_permissions(
+    request: Request,
     current_user: Annotated[User, Depends(get_current_user)],
     session: Session = Depends(get_session),
 ) -> dict[str, list[str]]:
@@ -75,7 +83,9 @@ async def get_my_permissions(
 
 
 @router.get("/{user_id}")
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def get_user_roles_endpoint(
+    request: Request,
     user_id: int,
     current_user: Annotated[User, Depends(get_current_user)],
     session: Session = Depends(get_session),
@@ -97,7 +107,9 @@ async def get_user_roles_endpoint(
 
 
 @router.post("/")
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def add_user_role(
+    request: Request,
     _: Annotated[User, Depends(require_permission("rbac", "write"))],
     data: UserRoleForm,
     session: Session = Depends(get_session),
@@ -124,7 +136,9 @@ async def add_user_role(
 
 
 @router.delete("/")
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def remove_user_role(
+    request: Request,
     _: Annotated[User, Depends(require_permission("rbac", "delete"))],
     data: UserRoleForm,
     session: Session = Depends(get_session),

@@ -71,6 +71,13 @@ uv run ty check
 ```
 uv run fastapi dev src/app/main.py
 export PYTHONPATH=/Users/cbb/dev/doozy/server/src
+
+Once poe is configured with...
+
+[tool.poe.tasks]
+run       = "uvicorn app.main:app --reload --app-dir src"
+
+uv run poe run --host 0.0.0.0
 ```
 
 # Add a CLI

@@ -1,7 +1,11 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from app.config import Settings
+from app.rate_limit import limiter
+
+_settings = Settings()
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import paginate
 from pydantic import BaseModel, Field
@@ -51,7 +55,9 @@ def _get_or_404(session: Session, group_id: int) -> Group:
 
 # TODO: Need a solution for duplicate groups names amongst unrelated parties.
 @router.post("/", status_code=201)
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def create_group(
+    request: Request,
     data: GroupCreate,
     user: Annotated[User, Depends(require_permission("groups", "write"))],
     session: Session = Depends(get_session),
@@ -64,7 +70,9 @@ async def create_group(
 
 
 @router.get("/")
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def list_groups(
+    request: Request,
     user: Annotated[User, Depends(require_permission("groups", "read"))],
     session: Session = Depends(get_session),
 ) -> Page[GroupRead]:
@@ -76,7 +84,9 @@ async def list_groups(
 
 
 @router.get("/{id}")
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def get_group(
+    request: Request,
     id: int,
     user: Annotated[User, Depends(require_permission("groups", "read"))],
     session: Session = Depends(get_session),
@@ -88,7 +98,9 @@ async def get_group(
 
 
 @router.delete("/{id}")
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def delete_group(
+    request: Request,
     id: int,
     user: Annotated[User, Depends(require_permission("groups", "delete"))],
     session: Session = Depends(get_session),
@@ -104,7 +116,9 @@ async def delete_group(
 # groups we call the creators owners and don't have the concept of an owner.  I
 # need to update the terminology to only use "creator" for groups.
 @router.post("/{id}/members/{username}")
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def add_member(
+    request: Request,
     id: int,
     username: str,
     user: Annotated[User, Depends(require_permission("groups", "write"))],
@@ -126,7 +140,9 @@ async def add_member(
 
 
 @router.delete("/{id}/members/{username}")
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def remove_member(
+    request: Request,
     id: int,
     username: str,
     user: Annotated[User, Depends(require_permission("groups", "delete"))],
