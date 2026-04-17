@@ -11,7 +11,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from db.main import db_create, get_session
 from app.middleware import LoggingMiddleware, TimingMiddleware
+from app.rate_limit import limiter, rate_limit_exceeded_handler
 from routers import ai, friendships, groups, health, item_tags, items, rbac, tags, users, verification
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 from util.security import authenticate_user, encode_token, Token
 
 # configuration and oauth-related helpers
@@ -77,9 +80,12 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
 app.add_middleware(LoggingMiddleware, file_name="/tmp/doozy.log")
 app.add_middleware(TimingMiddleware)
+app.add_middleware(SlowAPIMiddleware)
 
 app.include_router(health.router)
 app.include_router(ai.router)
@@ -126,7 +132,9 @@ async def root():
         },
     },
 )
+@limiter.limit(settings.RATE_LIMIT_AUTH)
 async def login(
+    request: Request,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     session: Session = Depends(get_session),
 ) -> Token:
@@ -144,6 +152,7 @@ async def login(
 
 # oauth2 endpoints for Google ------------------------------------------------
 @app.get("/login/google")
+@limiter.limit(settings.RATE_LIMIT_AUTH)
 async def login_google(request: Request):
     """Redirect the user to the Google authorization endpoint.
 
@@ -166,6 +175,7 @@ async def login_google(request: Request):
 
 
 @app.get("/auth/google")
+@limiter.limit(settings.RATE_LIMIT_AUTH)
 async def auth_google(request: Request, session: Session = Depends(get_session)):
     """OAuth callback endpoint that handles Google's authorization code.
 

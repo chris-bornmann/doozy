@@ -2,7 +2,11 @@
 from enum import Enum
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from app.config import Settings
+from app.rate_limit import limiter
+
+_settings = Settings()
 from fastapi_pagination import Page, Params
 from fastapi_pagination.ext.sqlalchemy import paginate
 from pydantic import BaseModel
@@ -37,7 +41,9 @@ router = APIRouter(
 # default and something must be provided.  The Query itself represents
 # parameters that follow the "?" on a URL.
 @router.get("/", response_model=None)
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def list_item_tags(
+    request: Request,
     user: Annotated[User, Depends(require_permission("item_tags", "read"))],
     by: LookupBy = Query(..., description="'item' to get tags for an item; 'tag' to get items for a tag"),
     id: int = Query(..., description="ID of the item or tag, depending on 'by'"),
@@ -74,7 +80,9 @@ async def list_item_tags(
 
 
 @router.post("/")
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def assign_tag(
+    request: Request,
     user: Annotated[User, Depends(require_permission("item_tags", "write"))],
     data: ItemTagForm,
     session: Session = Depends(get_session),
@@ -104,7 +112,9 @@ async def assign_tag(
 
 
 @router.delete("/")
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def remove_tag_assignment(
+    request: Request,
     user: Annotated[User, Depends(require_permission("item_tags", "delete"))],
     data: ItemTagForm,
     session: Session = Depends(get_session),
