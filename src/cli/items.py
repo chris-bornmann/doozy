@@ -7,7 +7,7 @@ from sqlmodel import Session
 
 from constants import Priority
 from db.item_orders import move_item
-from db.items import all, get as item_get, remove as item_remove, update as item_update
+from db.items import all, delete_item, get as item_get, update as item_update
 from db.main import engine
 from db.models import Item
 
@@ -48,7 +48,7 @@ def remove(
             typer.echo('Error: no such item.', err=True)
             raise typer.Exit(code=1)
 
-        item_remove(session, item)
+        delete_item(session, item)
 
 
 @app.command('update')

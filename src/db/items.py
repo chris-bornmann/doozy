@@ -2,10 +2,11 @@
 import datetime as dt
 from typing import Optional
 
+from sqlalchemy import delete as sa_delete
 from sqlmodel import Session, select
 
 from constants import State
-from db.models import Item, ItemOwnership
+from db.models import Item, ItemOwnership, ItemTag
 
 
 def create_item(session: Session, creator_id: int, **kwargs) -> int:
@@ -62,6 +63,9 @@ def update(session: Session, item: Item, changes: dict, user_id: Optional[int] =
     return item
 
 
-def remove(session: Session, item: Item) -> None:
+def delete_item(session: Session, item: Item) -> None:
+    # Delete an item and all associated tags and ownership records atomically.
+    session.exec(sa_delete(ItemTag).where(ItemTag.item_id == item.id))
+    session.exec(sa_delete(ItemOwnership).where(ItemOwnership.item_id == item.id))
     session.delete(item)
     session.commit()
