@@ -49,6 +49,7 @@ def _get_or_404(session: Session, group_id: int) -> Group:
     return group
 
 
+# TODO: Need a solution for duplicate groups names amongst unrelated parties.
 @router.post("/", status_code=201)
 async def create_group(
     data: GroupCreate,
@@ -99,6 +100,9 @@ async def delete_group(
     return {"ok": True}
 
 
+# TODO: Terminology confusion.  We have item creators and item owners, but with
+# groups we call the creators owners and don't have the concept of an owner.  I
+# need to update the terminology to only use "creator" for groups.
 @router.post("/{id}/members/{username}")
 async def add_member(
     id: int,

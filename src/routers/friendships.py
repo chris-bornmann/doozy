@@ -46,6 +46,7 @@ def _get_or_404(session: Session, friendship_id: int):
     return f
 
 
+# TODO: Add additional responses for all the status codes (400, 409, etc).
 @router.post("/request/{username}", status_code=201)
 async def request_friendship(
     username: str,

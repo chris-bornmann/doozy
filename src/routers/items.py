@@ -52,6 +52,7 @@ CustomPage = CustomizedPage[
 ]
 
 
+# Custom sort is handled independently.
 _SORT_COLUMNS = {
     SortBy.priority:   Item.priority,
     SortBy.created_on: Item.created_on,
@@ -60,8 +61,12 @@ _SORT_COLUMNS = {
 }
 
 
+# TODO: This should be called "_get_accessible_to".
 def _owned_by(user_id: int):
-    """Base select(Item) for items accessible to user_id via direct ownership, group membership, or creation."""
+    """Base select(Item) for items accessible to user_id via direct ownership,"""
+    """ group membership, or creation."""
+
+    # Items assigned to me or in a group I'm a member of.
     my_groups = select(GroupMember.group_id).where(GroupMember.user_id == user_id)
     accessible = (
         select(ItemOwnership.item_id)
@@ -72,11 +77,12 @@ def _owned_by(user_id: int):
             )
         )
     )
-    # Also include items the user created, even if ownership was later transferred
+
+    # ...and not just that, but maybe created by me?
     return select(Item).where(
         sa.or_(
             Item.id.in_(accessible),
-            Item.creator_id == user_id,
+            Item.creator_id == user_id,  # If I created it, I can always see it.
         )
     )
 
@@ -114,9 +120,16 @@ def _to_item_reads(session: Session, items: list[Item]) -> list[ItemRead]:
     ownerships = session.exec(
         select(ItemOwnership).where(ItemOwnership.item_id.in_(item_ids))
     ).all()
+    assert len(ownerships) == len(item_ids)
+
+    # Not every item will be in a group...
     ownership_by_item = {o.item_id: o for o in ownerships}
 
+    # The "is not None" check is not needed, because the user_id is always set.
     owner_ids = {o.user_id for o in ownerships if o.user_id is not None}
+    assert owner_ids
+
+    # ...which means this check is also unnecessary.
     if owner_ids:
         owner_users = session.exec(select(User).where(User.id.in_(owner_ids))).all()
         username_by_id = {u.id: u.username for u in owner_users}
@@ -125,6 +138,7 @@ def _to_item_reads(session: Session, items: list[Item]) -> list[ItemRead]:
 
     result = []
     for item in items:
+        # TODO: Make this a helper function.
         ownership = ownership_by_item.get(item.id)
         owner_username = username_by_id.get(ownership.user_id, "") if ownership else ""
         group_id = ownership.group_id if ownership else None
@@ -278,6 +292,8 @@ async def patch_item(
     item = get(session, id)
     if item is None:
         raise HTTPException(status_code=404, detail="Item not found")
+    # TODO: The creator, owner, or group member can edit the item.
+    # Maybe that should be configurable so that group members can't edit?
     ownership = _get_ownership(session, id)
     if ownership.user_id != user.id:
         raise HTTPException(status_code=403, detail="Only the owner can modify this item")
@@ -318,6 +334,8 @@ async def assign_to_user(
     username: str,
     session: Session = Depends(get_session),
 ) -> dict[str, bool]:
+    """Change the owner of an item.  The "owner" is just the DRI."""
+
     item = get(session, id)
     if item is None:
         raise HTTPException(status_code=404, detail="Item not found")
