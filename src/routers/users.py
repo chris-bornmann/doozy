@@ -18,6 +18,7 @@ from constants import UserState
 from db.main import get_session
 from db.models import Item, User, UserNoSecret
 from db.users import get, get_by_username
+from rbac.roles import assign_role
 from db.verification import create_verification
 from routers.forms import User as UserForm
 from routers.verification import send_verification_email
@@ -148,6 +149,7 @@ async def create_user(
     session.add(user)
     session.commit()
     session.refresh(user)
+    assign_role(session, user.id, "user")
 
     settings = Settings()
     raw_token = create_verification(session, user.id, settings.VERIFICATION_EXPIRE_MINUTES)
