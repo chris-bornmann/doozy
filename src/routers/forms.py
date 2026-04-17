@@ -3,7 +3,7 @@ import datetime as dt
 from datetime import date, datetime
 from typing import Annotated, Any, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from constants import Priority, State, FriendshipStatus
 
@@ -51,6 +51,28 @@ class ItemFilter(BaseModel):
     completed_before: Optional[datetime] = None
     completed_on: Optional[date] = None
     tags: list[str] = []
+    group_ids: list[int] = []
+
+
+class ItemRead(BaseModel):
+    """Item response model — includes all Item fields plus current ownership info."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: Optional[int]
+    name: str
+    description: Optional[str]
+    priority: Optional[Priority]
+    state: State
+    creator_id: int
+    created_on: datetime
+    due_on: Optional[datetime]
+    completed_on: Optional[datetime]
+    completed_by_id: Optional[int]
+    updated_on: Optional[datetime]
+    # Ownership fields — populated from ItemOwnership at response time
+    owner: str           # username of the current owner
+    group_id: Optional[int]  # group the item is shared with, if any
 
 
 class FriendshipRead(BaseModel):

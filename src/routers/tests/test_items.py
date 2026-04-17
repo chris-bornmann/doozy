@@ -3,7 +3,7 @@ import datetime as dt
 from sqlmodel import Session
 
 from constants import Priority, State
-from db.models import Item, Tag, ItemTag
+from db.models import Item, ItemOwnership, Tag, ItemTag
 from db.users import create_user
 
 
@@ -80,6 +80,8 @@ def test_read_item_wrong_owner_is_forbidden(auth_headers, session):
     other = create_user(session, username="otheruser3", password="password1234")
     item = Item(name="Belongs to other", creator_id=other.id)
     session.add(item)
+    session.flush()
+    session.add(ItemOwnership(item_id=item.id, user_id=other.id))
     session.commit()
     session.refresh(item)
     assert client.get(f"/items/{item.id}").status_code == 403
@@ -110,6 +112,8 @@ def test_delete_item_wrong_owner_is_forbidden(auth_headers, session):
     other = create_user(session, username="otheruser4", password="password1234")
     item = Item(name="Other persons item", creator_id=other.id)
     session.add(item)
+    session.flush()
+    session.add(ItemOwnership(item_id=item.id, user_id=other.id))
     session.commit()
     session.refresh(item)
     assert client.delete(f"/items/{item.id}").status_code == 403
@@ -207,6 +211,8 @@ def test_reorder_wrong_owner_is_forbidden(auth_headers, session):
     other = create_user(session, username="otheruser5", password="password1234")
     item = Item(name="Not your item!!", creator_id=other.id)
     session.add(item)
+    session.flush()
+    session.add(ItemOwnership(item_id=item.id, user_id=other.id))
     session.commit()
     session.refresh(item)
     assert client.post(f"/items/{item.id}/reorder", json={"after_id": None}).status_code == 403
@@ -217,6 +223,8 @@ def test_reorder_after_id_wrong_owner_is_forbidden(auth_headers, session):
     other = create_user(session, username="otheruser6", password="password1234")
     other_item = Item(name="Belongs to other!!", creator_id=other.id)
     session.add(other_item)
+    session.flush()
+    session.add(ItemOwnership(item_id=other_item.id, user_id=other.id))
     session.commit()
     session.refresh(other_item)
 
@@ -257,6 +265,9 @@ def test_sort_by_priority(auth_headers, session):
     med  = Item(name="Med priority item!", creator_id=user.id, priority=Priority.MEDIUM)
     low  = Item(name="Low priority item!", creator_id=user.id, priority=Priority.LOW)
     session.add_all([low, med, high])  # add out of order
+    session.flush()
+    for item in [low, med, high]:
+        session.add(ItemOwnership(item_id=item.id, user_id=user.id))
     session.commit()
     for item in [low, med, high]:
         session.refresh(item)
@@ -276,6 +287,9 @@ def test_sort_by_due_on(auth_headers, session):
     second = Item(name="Due second itembb", creator_id=user.id, due_on=now + dt.timedelta(days=2))
     third  = Item(name="Due third item cc", creator_id=user.id, due_on=now + dt.timedelta(days=3))
     session.add_all([third, first, second])  # add out of order
+    session.flush()
+    for item in [third, first, second]:
+        session.add(ItemOwnership(item_id=item.id, user_id=user.id))
     session.commit()
     for item in [third, first, second]:
         session.refresh(item)
@@ -327,6 +341,9 @@ def test_reverse_priority(auth_headers, session):
     med  = Item(name="Med priority item!", creator_id=user.id, priority=Priority.MEDIUM)
     low  = Item(name="Low priority item!", creator_id=user.id, priority=Priority.LOW)
     session.add_all([low, med, high])
+    session.flush()
+    for item in [low, med, high]:
+        session.add(ItemOwnership(item_id=item.id, user_id=user.id))
     session.commit()
     for item in [low, med, high]:
         session.refresh(item)
@@ -437,6 +454,8 @@ def test_patch_item_wrong_owner_is_forbidden(auth_headers, session):
     other = create_user(session, username="otheruser7", password="password1234")
     item = Item(name="Belongs to other!!", creator_id=other.id)
     session.add(item)
+    session.flush()
+    session.add(ItemOwnership(item_id=item.id, user_id=other.id))
     session.commit()
     session.refresh(item)
     assert client.patch(f"/items/{item.id}", json={"name": "Trying to steal!"}).status_code == 403
@@ -599,6 +618,9 @@ def test_sort_by_state(auth_headers, session):
     cancelled = Item(name="Cancelled item aaa", creator_id=user.id, state=State.CANCELLED)
     in_prog   = Item(name="In progress itemaa", creator_id=user.id, state=State.IN_PROGRESS)
     session.add_all([done, cancelled, in_prog, new])
+    session.flush()
+    for item in [done, cancelled, in_prog, new]:
+        session.add(ItemOwnership(item_id=item.id, user_id=user.id))
     session.commit()
     for item in [done, new, cancelled, in_prog]:
         session.refresh(item)
@@ -714,6 +736,9 @@ def test_search_filter_by_created_after(auth_headers, session):
         created_on=dt.datetime(2026, 1, 1, tzinfo=dt.timezone.utc),
     )
     session.add_all([old, new])
+    session.flush()
+    for item in [old, new]:
+        session.add(ItemOwnership(item_id=item.id, user_id=user.id))
     session.commit()
     threshold = "2023-01-01T00:00:00Z"
     ids = [i["id"] for i in _search(client, created_after=threshold).json()["items"]]
@@ -732,6 +757,9 @@ def test_search_filter_by_created_before(auth_headers, session):
         created_on=dt.datetime(2026, 1, 1, tzinfo=dt.timezone.utc),
     )
     session.add_all([old, new])
+    session.flush()
+    for item in [old, new]:
+        session.add(ItemOwnership(item_id=item.id, user_id=user.id))
     session.commit()
     threshold = "2023-01-01T00:00:00Z"
     ids = [i["id"] for i in _search(client, created_before=threshold).json()["items"]]
@@ -746,6 +774,9 @@ def test_search_filter_by_created_on(auth_headers, session):
     match = Item(name="Created on target day", creator_id=user.id, created_on=target_day)
     no_match = Item(name="Created on other day!", creator_id=user.id, created_on=other_day)
     session.add_all([match, no_match])
+    session.flush()
+    for item in [match, no_match]:
+        session.add(ItemOwnership(item_id=item.id, user_id=user.id))
     session.commit()
     ids = [i["id"] for i in _search(client, created_on="2025-06-15").json()["items"]]
     assert match.id in ids
@@ -759,6 +790,9 @@ def test_search_filter_by_due_on(auth_headers, session):
     match    = Item(name="Due on target day aaa", creator_id=user.id, due_on=target)
     no_match = Item(name="Due on other day aaaa", creator_id=user.id, due_on=other)
     session.add_all([match, no_match])
+    session.flush()
+    for item in [match, no_match]:
+        session.add(ItemOwnership(item_id=item.id, user_id=user.id))
     session.commit()
     ids = [i["id"] for i in _search(client, due_on="2025-09-01").json()["items"]]
     assert match.id in ids
@@ -772,6 +806,9 @@ def test_search_filter_by_completed_on(auth_headers, session):
     match    = Item(name="Completed on target!!", creator_id=user.id, completed_on=target, state=State.DONE)
     no_match = Item(name="Completed on other day", creator_id=user.id, completed_on=other, state=State.DONE)
     session.add_all([match, no_match])
+    session.flush()
+    for item in [match, no_match]:
+        session.add(ItemOwnership(item_id=item.id, user_id=user.id))
     session.commit()
     ids = [i["id"] for i in _search(client, completed_on="2025-03-10").json()["items"]]
     assert match.id in ids
@@ -784,6 +821,9 @@ def test_search_filter_by_single_tag(auth_headers, session):
     untagged = Item(name="Untagged item aaaaaa", creator_id=user.id)
     tag = Tag(name="urgent")
     session.add_all([tagged, untagged, tag])
+    session.flush()
+    for item in [tagged, untagged]:
+        session.add(ItemOwnership(item_id=item.id, user_id=user.id))
     session.commit()
     session.add(ItemTag(item_id=tagged.id, tag_id=tag.id))
     session.commit()
@@ -801,6 +841,9 @@ def test_search_filter_by_multiple_tags_or_semantics(auth_headers, session):
     tag_w = Tag(name="work")
     tag_u = Tag(name="urgent2")
     session.add_all([item_a, item_b, item_ab, item_c, tag_w, tag_u])
+    session.flush()
+    for item in [item_a, item_b, item_ab, item_c]:
+        session.add(ItemOwnership(item_id=item.id, user_id=user.id))
     session.commit()
     session.add_all([
         ItemTag(item_id=item_a.id,  tag_id=tag_w.id),
@@ -827,6 +870,9 @@ def test_search_filter_combined(auth_headers, session):
     wrong_name  = Item(name="No match at all aaaa", creator_id=user.id, state=State.DONE)
     no_tag      = Item(name="Combined match item!", creator_id=user.id, state=State.DONE)
     session.add_all([match, wrong_state, wrong_name, no_tag])
+    session.flush()
+    for item in [match, wrong_state, wrong_name, no_tag]:
+        session.add(ItemOwnership(item_id=item.id, user_id=user.id))
     session.commit()
     session.add(ItemTag(item_id=match.id, tag_id=tag.id))
     session.add(ItemTag(item_id=wrong_state.id, tag_id=tag.id))
@@ -849,3 +895,406 @@ def test_search_no_cross_user_leakage(auth_headers, session):
     session.commit()
     names = [i["name"] for i in _search(client).json()["items"]]
     assert "Other users item aaa" not in names
+
+
+# ---------------------------------------------------------------------------
+# POST /items/{id}/assign/user/{username}
+# POST /items/{id}/assign/group/{group_id}
+# ---------------------------------------------------------------------------
+
+from constants import FriendshipStatus
+from db import friendships as db_friends
+from db import groups as db_groups
+from db.users import get_by_username
+from util.security import encode_token
+
+
+def _make_friend(session, user, username="frienduser1"):
+    """Create a user and establish an ACCEPTED friendship with user."""
+    friend = create_user(session, username=username, password="password1234")
+    friendship = db_friends.request(session, user.id, friend.id)
+    db_friends.accept(session, friendship)
+    return friend
+
+
+def _make_friend_client(session, friend):
+    """Return an authenticated TestClient for friend."""
+    from fastapi.testclient import TestClient as TC
+    from app.main import app
+    from db.main import get_session
+    token = encode_token({"sub": friend.username})
+    app.dependency_overrides[get_session] = lambda: session
+    return TC(app, raise_server_exceptions=True,
+              headers={"Authorization": f"Bearer {token}"})
+
+
+def test_assign_to_self(auth_headers):
+    client, _ = auth_headers
+    item_id = client.post("/items/", params={"name": "Assign to self item"}).json()["id"]
+    response = client.post(f"/items/{item_id}/assign/user/testuser1")
+    assert response.status_code == 200
+    assert response.json() == {"ok": True}
+
+
+def test_assign_to_friend(auth_headers, session):
+    client, user = auth_headers
+    friend = _make_friend(session, user, "frienduser2")
+    item_id = client.post("/items/", params={"name": "Assign to friend item"}).json()["id"]
+    response = client.post(f"/items/{item_id}/assign/user/{friend.username}")
+    assert response.status_code == 200
+    assert response.json() == {"ok": True}
+
+
+def test_assign_to_non_friend_returns_403(auth_headers, session):
+    client, _ = auth_headers
+    stranger = create_user(session, username="strangeruser1", password="password1234")
+    item_id = client.post("/items/", params={"name": "Assign to stranger!"}).json()["id"]
+    response = client.post(f"/items/{item_id}/assign/user/{stranger.username}")
+    assert response.status_code == 403
+
+
+def test_assign_non_owner_returns_403(auth_headers, session):
+    """A user who is not the current owner cannot transfer ownership."""
+    client, user = auth_headers
+    friend = _make_friend(session, user, "frienduser3")
+    friend_client = _make_friend_client(session, friend)
+
+    # friend creates their own item; testuser1 is not the owner and cannot reassign it
+    friend_item_id = friend_client.post("/items/", params={"name": "Friends own item aa"}).json()["id"]
+    response = client.post(f"/items/{friend_item_id}/assign/user/testuser1")
+    assert response.status_code == 403
+
+
+def test_assign_item_not_found_returns_404(auth_headers):
+    client, _ = auth_headers
+    assert client.post("/items/9999/assign/user/testuser1").status_code == 404
+
+
+def test_assign_user_not_found_returns_404(auth_headers):
+    client, _ = auth_headers
+    item_id = client.post("/items/", params={"name": "Assign user 404 test"}).json()["id"]
+    assert client.post(f"/items/{item_id}/assign/user/nosuchuser123").status_code == 404
+
+
+def test_assigned_item_visible_to_assignee(auth_headers, session):
+    client, user = auth_headers
+    friend = _make_friend(session, user, "frienduser4")
+    friend_client = _make_friend_client(session, friend)
+
+    item_id = client.post("/items/", params={"name": "Visible to assignee!"}).json()["id"]
+    client.post(f"/items/{item_id}/assign/user/{friend.username}")
+
+    names = [i["name"] for i in friend_client.get("/items/", params={"size": 100}).json()["items"]]
+    assert "Visible to assignee!" in names
+
+
+def test_creator_can_still_see_item_after_reassignment(auth_headers, session):
+    """Creator retains read visibility even after ownership is transferred to a friend."""
+    client, user = auth_headers
+    friend = _make_friend(session, user, "frienduser5")
+
+    item_id = client.post("/items/", params={"name": "Stays visible to creator"}).json()["id"]
+    client.post(f"/items/{item_id}/assign/user/{friend.username}")
+
+    names = [i["name"] for i in client.get("/items/", params={"size": 100}).json()["items"]]
+    assert "Stays visible to creator" in names
+
+
+def test_assign_to_group_as_member(auth_headers, session):
+    """Setting a group preserves user_id — owner retains ownership."""
+    client, user = auth_headers
+    group = db_groups.create(session, name="Test group", owner_id=user.id)
+    item_id = client.post("/items/", params={"name": "Assign to group item"}).json()["id"]
+    response = client.post(f"/items/{item_id}/assign/group/{group.id}")
+    assert response.status_code == 200
+    assert response.json() == {"ok": True}
+    # Owner still owns the item (user_id not cleared)
+    from db.models import ItemOwnership as IO
+    ownership = session.get(IO, item_id)
+    assert ownership.user_id == user.id
+    assert ownership.group_id == group.id
+
+
+def test_assign_to_group_not_member_returns_403(auth_headers, session):
+    client, user = auth_headers
+    other = create_user(session, username="groupowner11", password="password1234")
+    group = db_groups.create(session, name="Others group", owner_id=other.id)
+    item_id = client.post("/items/", params={"name": "Assign to other grp!"}).json()["id"]
+    response = client.post(f"/items/{item_id}/assign/group/{group.id}")
+    assert response.status_code == 403
+
+
+def test_assign_to_group_not_found_returns_404(auth_headers):
+    client, _ = auth_headers
+    item_id = client.post("/items/", params={"name": "Assign group 404 tst"}).json()["id"]
+    assert client.post(f"/items/{item_id}/assign/group/9999").status_code == 404
+
+
+def test_group_assigned_item_visible_to_members(auth_headers, session):
+    client, user = auth_headers
+    friend = _make_friend(session, user, "frienduser6")
+    group = db_groups.create(session, name="Shared group", owner_id=user.id)
+    db_groups.add_member(session, group.id, friend.id)
+
+    item_id = client.post("/items/", params={"name": "Group visible item!!"}).json()["id"]
+    client.post(f"/items/{item_id}/assign/group/{group.id}")
+
+    friend_client = _make_friend_client(session, friend)
+    names = [i["name"] for i in friend_client.get("/items/", params={"size": 100}).json()["items"]]
+    assert "Group visible item!!" in names
+
+
+# ---------------------------------------------------------------------------
+# Permission checks: patch / delete / read by ID now use owner, not creator
+# ---------------------------------------------------------------------------
+
+def test_patch_by_owner_after_transfer(auth_headers, session):
+    """After ownership is transferred, the new owner can patch the item."""
+    client, user = auth_headers
+    friend = _make_friend(session, user, "newowner1")
+    friend_client = _make_friend_client(session, friend)
+
+    item_id = client.post("/items/", params={"name": "Transfer patch test!!"}).json()["id"]
+    client.post(f"/items/{item_id}/assign/user/{friend.username}")
+
+    response = friend_client.patch(f"/items/{item_id}", json={"name": "Patched by new ownr"})
+    assert response.status_code == 200
+    assert response.json()["name"] == "Patched by new ownr"
+
+
+def test_patch_by_old_owner_after_transfer_returns_403(auth_headers, session):
+    """After transferring ownership, the original creator can no longer patch."""
+    client, user = auth_headers
+    friend = _make_friend(session, user, "newowner2")
+
+    item_id = client.post("/items/", params={"name": "Old owner patch test"}).json()["id"]
+    client.post(f"/items/{item_id}/assign/user/{friend.username}")
+
+    assert client.patch(f"/items/{item_id}", json={"name": "Steal patch attempt"}).status_code == 403
+
+
+def test_delete_by_owner_after_transfer(auth_headers, session):
+    """After ownership is transferred, the new owner can delete the item."""
+    client, user = auth_headers
+    friend = _make_friend(session, user, "newowner3")
+    friend_client = _make_friend_client(session, friend)
+
+    item_id = client.post("/items/", params={"name": "Transfer delete test!"}).json()["id"]
+    client.post(f"/items/{item_id}/assign/user/{friend.username}")
+
+    assert friend_client.delete(f"/items/{item_id}").json() == {"ok": True}
+
+
+def test_read_item_by_group_member(auth_headers, session):
+    """A group member (who is not the owner) can read an item by ID."""
+    client, user = auth_headers
+    friend = _make_friend(session, user, "groupmember1")
+    group = db_groups.create(session, name="Read access grp", owner_id=user.id)
+    db_groups.add_member(session, group.id, friend.id)
+    friend_client = _make_friend_client(session, friend)
+
+    item_id = client.post("/items/", params={"name": "Group read test item!"}).json()["id"]
+    client.post(f"/items/{item_id}/assign/group/{group.id}")
+
+    response = friend_client.get(f"/items/{item_id}")
+    assert response.status_code == 200
+    assert response.json()["id"] == item_id
+
+
+def test_patch_by_group_member_is_forbidden(auth_headers, session):
+    """A group member who is not the owner cannot patch the item."""
+    client, user = auth_headers
+    friend = _make_friend(session, user, "groupmember2")
+    group = db_groups.create(session, name="No patch group", owner_id=user.id)
+    db_groups.add_member(session, group.id, friend.id)
+    friend_client = _make_friend_client(session, friend)
+
+    item_id = client.post("/items/", params={"name": "Group no patch item!"}).json()["id"]
+    client.post(f"/items/{item_id}/assign/group/{group.id}")
+
+    assert friend_client.patch(f"/items/{item_id}", json={"name": "Unauthorized patch!"}).status_code == 403
+
+
+def test_delete_by_group_member_is_forbidden(auth_headers, session):
+    """A group member who is not the owner cannot delete the item."""
+    client, user = auth_headers
+    friend = _make_friend(session, user, "groupmember3")
+    group = db_groups.create(session, name="No delete group", owner_id=user.id)
+    db_groups.add_member(session, group.id, friend.id)
+    friend_client = _make_friend_client(session, friend)
+
+    item_id = client.post("/items/", params={"name": "Group no delete item"}).json()["id"]
+    client.post(f"/items/{item_id}/assign/group/{group.id}")
+
+    assert friend_client.delete(f"/items/{item_id}").status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Reorder by group member
+# ---------------------------------------------------------------------------
+
+def test_reorder_by_group_member(auth_headers, session):
+    """A group member (non-owner) can reorder an item they can see."""
+    client, user = auth_headers
+    friend = _make_friend(session, user, "reordermember1")
+    group = db_groups.create(session, name="Reorder group", owner_id=user.id)
+    db_groups.add_member(session, group.id, friend.id)
+    friend_client = _make_friend_client(session, friend)
+
+    item_id = client.post("/items/", params={"name": "Reorder group item!!"}).json()["id"]
+    client.post(f"/items/{item_id}/assign/group/{group.id}")
+
+    response = friend_client.post(f"/items/{item_id}/reorder", json={"after_id": None})
+    assert response.status_code == 200
+    assert "order_key" in response.json()
+
+
+def test_reorder_after_id_by_group_member(auth_headers, session):
+    """A group member can use another visible item as the after_id anchor."""
+    client, user = auth_headers
+    friend = _make_friend(session, user, "reordermember2")
+    group = db_groups.create(session, name="Reorder group 2", owner_id=user.id)
+    db_groups.add_member(session, group.id, friend.id)
+    friend_client = _make_friend_client(session, friend)
+
+    item_a = client.post("/items/", params={"name": "Reorder anchor itemaa"}).json()["id"]
+    item_b = client.post("/items/", params={"name": "Reorder target itembb"}).json()["id"]
+    client.post(f"/items/{item_a}/assign/group/{group.id}")
+    client.post(f"/items/{item_b}/assign/group/{group.id}")
+
+    response = friend_client.post(f"/items/{item_b}/reorder", json={"after_id": item_a})
+    assert response.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Group unassignment
+# ---------------------------------------------------------------------------
+
+def test_unassign_group(auth_headers, session):
+    """Owner can unset the group via DELETE /{id}/assign/group."""
+    client, user = auth_headers
+    friend = _make_friend(session, user, "ungroupmember1")
+    group = db_groups.create(session, name="Unassign group", owner_id=user.id)
+    db_groups.add_member(session, group.id, friend.id)
+    friend_client = _make_friend_client(session, friend)
+
+    item_id = client.post("/items/", params={"name": "Unassign group item!"}).json()["id"]
+    client.post(f"/items/{item_id}/assign/group/{group.id}")
+
+    # Group member can see it
+    names = [i["name"] for i in friend_client.get("/items/", params={"size": 100}).json()["items"]]
+    assert "Unassign group item!" in names
+
+    # Owner unsets the group
+    assert client.delete(f"/items/{item_id}/assign/group").json() == {"ok": True}
+
+    # Group member can no longer see it
+    names = [i["name"] for i in friend_client.get("/items/", params={"size": 100}).json()["items"]]
+    assert "Unassign group item!" not in names
+
+
+def test_unassign_group_non_owner_returns_403(auth_headers, session):
+    """A non-owner cannot unset the group."""
+    client, user = auth_headers
+    friend = _make_friend(session, user, "ungroupmember2")
+    group = db_groups.create(session, name="No unassign group", owner_id=user.id)
+    db_groups.add_member(session, group.id, friend.id)
+    friend_client = _make_friend_client(session, friend)
+
+    item_id = client.post("/items/", params={"name": "Non owner unassign!!"}).json()["id"]
+    client.post(f"/items/{item_id}/assign/group/{group.id}")
+
+    assert friend_client.delete(f"/items/{item_id}/assign/group").status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Ownership transfer with group constraint
+# ---------------------------------------------------------------------------
+
+def test_transfer_ownership_new_owner_not_in_group_returns_403(auth_headers, session):
+    """If the item is in a group and the new owner is not in that group, transfer is denied."""
+    client, user = auth_headers
+    friend = _make_friend(session, user, "transferfriend1")
+    group = db_groups.create(session, name="Constrained group", owner_id=user.id)
+    # friend is NOT added to the group
+
+    item_id = client.post("/items/", params={"name": "Group constrained item"}).json()["id"]
+    client.post(f"/items/{item_id}/assign/group/{group.id}")
+
+    response = client.post(f"/items/{item_id}/assign/user/{friend.username}")
+    assert response.status_code == 403
+
+
+def test_transfer_ownership_new_owner_in_group(auth_headers, session):
+    """If the item is in a group and the new owner is also in that group, transfer succeeds."""
+    client, user = auth_headers
+    friend = _make_friend(session, user, "transferfriend2")
+    group = db_groups.create(session, name="Shared owner group", owner_id=user.id)
+    db_groups.add_member(session, group.id, friend.id)
+
+    item_id = client.post("/items/", params={"name": "Group transfer item!!"}).json()["id"]
+    client.post(f"/items/{item_id}/assign/group/{group.id}")
+
+    response = client.post(f"/items/{item_id}/assign/user/{friend.username}")
+    assert response.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# POST /items/search — filter by group_ids
+# ---------------------------------------------------------------------------
+
+def test_search_filter_by_group_ids(auth_headers, session):
+    """group_ids filter returns only items assigned to those groups."""
+    client, user = auth_headers
+    group = db_groups.create(session, name="Filter group", owner_id=user.id)
+
+    in_group  = client.post("/items/", params={"name": "Item in the group!!"}).json()["id"]
+    not_group = client.post("/items/", params={"name": "Item not in group!!"}).json()["id"]
+    client.post(f"/items/{in_group}/assign/group/{group.id}")
+
+    result = _search(client, group_ids=[group.id])
+    assert result.status_code == 200
+    ids = [i["id"] for i in result.json()["items"]]
+    assert in_group in ids
+    assert not_group not in ids
+
+
+def test_search_filter_group_ids_excludes_other_groups(auth_headers, session):
+    """group_ids filter does not return items from groups not in the filter list."""
+    client, user = auth_headers
+    group_a = db_groups.create(session, name="Group A filter", owner_id=user.id)
+    group_b = db_groups.create(session, name="Group B filter", owner_id=user.id)
+
+    item_a = client.post("/items/", params={"name": "Item in group A aa!"}).json()["id"]
+    item_b = client.post("/items/", params={"name": "Item in group B bb!"}).json()["id"]
+    client.post(f"/items/{item_a}/assign/group/{group_a.id}")
+    client.post(f"/items/{item_b}/assign/group/{group_b.id}")
+
+    ids = [i["id"] for i in _search(client, group_ids=[group_a.id]).json()["items"]]
+    assert item_a in ids
+    assert item_b not in ids
+
+
+def test_creator_can_read_item_by_id_after_reassignment(auth_headers, session):
+    """Creator can still fetch an item by ID after ownership has been transferred."""
+    client, user = auth_headers
+    friend = _make_friend(session, user, "creator_friend1")
+
+    item_id = client.post("/items/", params={"name": "Creator read by id"}).json()["id"]
+    client.post(f"/items/{item_id}/assign/user/{friend.username}")
+
+    response = client.get(f"/items/{item_id}")
+    assert response.status_code == 200
+    assert response.json()["id"] == item_id
+
+
+def test_creator_item_appears_in_search_after_reassignment(auth_headers, session):
+    """Creator's items are returned by /search even after ownership was transferred."""
+    client, user = auth_headers
+    friend = _make_friend(session, user, "creator_friend2")
+
+    item_id = client.post("/items/", params={"name": "Creator search visibility"}).json()["id"]
+    client.post(f"/items/{item_id}/assign/user/{friend.username}")
+
+    ids = [i["id"] for i in _search(client).json()["items"]]
+    assert item_id in ids

@@ -6,8 +6,9 @@ from typing import Optional
 import typer
 from sqlmodel import Session, SQLModel
 
+from db.items import create_item
 from db.main import engine
-from db.models import Item, Priority, State, User
+from db.models import Priority, State, User
 from rbac.roles import assign_role
 from util.security import get_password_hash
 
@@ -36,16 +37,10 @@ def _create_users(session: Session) -> list[User]:
 
 
 def _create_items(session: Session, users: list[User]) -> None:
-    item_1 = Item(name='abc 1111111111', description='hi', creator_id=users[0].id, priority=Priority.LOW)
-    item_2 = Item(name='def 2222222222', creator_id=users[0].id, priority=Priority.HIGH)
-    item_3 = Item(name='ghi 3333333333', creator_id=users[1].id, due_on=datetime.datetime.now(datetime.timezone.utc))
-    item_4 = Item(name='jkl 4444444444', creator_id=users[2].id, priority=Priority.LOW)
-
-    session.add(item_1)
-    session.add(item_2)
-    session.add(item_3)
-    session.add(item_4)
-    session.commit()
+    create_item(session, creator_id=users[0].id, name='abc 1111111111', description='hi', priority=Priority.LOW)
+    create_item(session, creator_id=users[0].id, name='def 2222222222', priority=Priority.HIGH)
+    create_item(session, creator_id=users[1].id, name='ghi 3333333333', due_on=datetime.datetime.now(datetime.timezone.utc))
+    create_item(session, creator_id=users[2].id, name='jkl 4444444444', priority=Priority.LOW)
 
 
 _ADJECTIVES = [
@@ -107,15 +102,15 @@ def blitz(
 
     with Session(engine) as session:
         for _ in range(count):
-            session.add(Item(
+            create_item(
+                session,
+                creator_id=creator_id,
                 name=_random_name(),
                 description=random.choice(_DESCRIPTIONS),
                 priority=random.choice(priorities),
                 state=random.choice(states),
                 due_on=_random_due_on(),
-                creator_id=creator_id,
-            ))
-        session.commit()
+            )
 
     typer.echo(f"{count} items added for creator_id={creator_id}.")
 
