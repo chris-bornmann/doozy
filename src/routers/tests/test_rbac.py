@@ -6,7 +6,7 @@ Covers the two-gate model:
   Gate 2 (ownership): does the user own this specific item instance?
 """
 
-from db.models import Item
+from db.models import Item, ItemOwnership
 from db.users import create_user
 from rbac.roles import assign_role
 from util.security import encode_token
@@ -51,6 +51,8 @@ def test_user_cannot_read_other_users_item(auth_headers, session):
     other = create_user(session, username="otheruser1", password="password1234")
     item = Item(name="Other persons item", creator_id=other.id)
     session.add(item)
+    session.flush()
+    session.add(ItemOwnership(item_id=item.id, user_id=other.id))
     session.commit()
     session.refresh(item)
 
@@ -62,6 +64,8 @@ def test_user_can_read_own_item(auth_headers, session):
     client, user = auth_headers
     item = Item(name="My own item abcde", creator_id=user.id)
     session.add(item)
+    session.flush()
+    session.add(ItemOwnership(item_id=item.id, user_id=user.id))
     session.commit()
     session.refresh(item)
 

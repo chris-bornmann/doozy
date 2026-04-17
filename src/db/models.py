@@ -163,6 +163,21 @@ class GroupMember(SQLModel, table=True):
     user_id: int = Field(foreign_key='users.id', primary_key=True)
 
 
+class ItemOwnership(SQLModel, table=True):
+    """
+    Tracks ownership and optional group visibility for an item.
+    user_id is always set — this is the responsible owner.
+    group_id is optional — when set, all members of that group can also see
+    and reorder the item. Both fields may be set simultaneously.
+    """
+
+    __tablename__ = 'item_ownership'
+
+    item_id: int = Field(foreign_key='items.id', primary_key=True)
+    user_id: Optional[int] = Field(default=None, foreign_key='users.id', nullable=True, index=True)
+    group_id: Optional[int] = Field(default=None, foreign_key='groups.id', nullable=True, index=True)
+
+
 class Item(SQLModel, table=True):
 
     __tablename__ = 'items'
