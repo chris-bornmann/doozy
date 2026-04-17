@@ -1,6 +1,6 @@
 from sqlmodel import select
 
-from db.models import Item, ItemTag, Tag
+from db.models import Item, ItemOwnership, ItemTag, Tag
 from db.users import create_user
 
 
@@ -11,6 +11,8 @@ from db.users import create_user
 def _make_item(session, user, name="Test item aaaa"):
     item = Item(name=name, creator_id=user.id)
     session.add(item)
+    session.flush()
+    session.add(ItemOwnership(item_id=item.id, user_id=user.id))
     session.commit()
     session.refresh(item)
     return item

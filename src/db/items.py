@@ -5,7 +5,23 @@ from typing import Optional
 from sqlmodel import Session, select
 
 from constants import State
-from db.models import Item
+from db.models import Item, ItemOwnership
+
+
+def create_item(session: Session, creator_id: int, **kwargs) -> int:
+    """
+    Create an item and assign ownership to its creator in a single transaction.
+    flush() sends the INSERT to get item.id without committing; the
+    ItemOwnership row is then added to the same transaction before the
+    single commit() call — both rows land atomically.
+    """
+    item = Item(creator_id=creator_id, **kwargs)
+    session.add(item)
+    session.flush()
+    session.add(ItemOwnership(item_id=item.id, user_id=creator_id))
+    session.commit()
+    session.refresh(item)
+    return item.id
 
 
 def add(session: Session, item: Item) -> int:

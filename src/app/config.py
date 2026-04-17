@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     GUI_URL: str = "http://localhost:5173/"
 
     ANTHROPIC_API_KEY: Optional[str] = None
+    OPENAI_API_KEY: Optional[str] = None
     LOGFIRE_TOKEN: Optional[str] = None
 
     SMTP_HOST: str = "localhost"

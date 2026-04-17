@@ -1,10 +1,11 @@
 
 from typing import Optional
 
+import sqlalchemy as sa
 from fractional_indexing import generate_key_between
 from sqlmodel import Session, select
 
-from db.models import Item, UserItemOrder
+from db.models import GroupMember, Item, ItemOwnership, UserItemOrder
 
 
 def get_user_order(session: Session, user_id: int) -> list[UserItemOrder]:
@@ -18,15 +19,28 @@ def get_user_order(session: Session, user_id: int) -> list[UserItemOrder]:
 
 def initialize_user_order(session: Session, user_id: int) -> list[UserItemOrder]:
     """
-    Ensure every item owned by user_id has a UserItemOrder entry.
+    Ensure every item visible to user_id has a UserItemOrder entry.
+    Visible means: user is the owner, or user is a member of the item's group.
     Items without an entry are appended after existing ones, ordered by item id.
     Returns the full ordered list.
     """
     existing = get_user_order(session, user_id)
     existing_item_ids = {o.item_id for o in existing}
 
+    # Items are visible to the user if they are the owner or the item is in
+    # a group the user belongs to.
+    my_groups = select(GroupMember.group_id).where(GroupMember.user_id == user_id)
+    accessible_ids = (
+        select(ItemOwnership.item_id)
+        .where(
+            sa.or_(
+                ItemOwnership.user_id == user_id,
+                ItemOwnership.group_id.in_(my_groups),
+            )
+        )
+    )
     all_items = session.exec(
-        select(Item).where(Item.creator_id == user_id).order_by(Item.id)
+        select(Item).where(Item.id.in_(accessible_ids)).order_by(Item.id)
     ).all()
 
     unordered = [item for item in all_items if item.id not in existing_item_ids]
