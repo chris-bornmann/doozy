@@ -2,11 +2,11 @@
 import logfire
 from sqlmodel import create_engine, Session, SQLModel
 
-from app.config import Settings
+from app.config import get_settings
 
 
-settings = Settings()
-engine = create_engine(settings.DATABASE_URL, connect_args={"check_same_thread": False})
+_settings = get_settings()
+engine = create_engine(_settings.DATABASE_URL, connect_args={"check_same_thread": False})
 logfire.instrument_sqlalchemy(engine=engine)
 
 

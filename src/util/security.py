@@ -10,14 +10,14 @@ from pwdlib import PasswordHash
 from pydantic import BaseModel
 from sqlmodel import Session
 
-from app.config import Settings
+from app.config import get_settings
 from db.models import User
 from db.users import get_by_username
 
 
 logger = logging.getLogger(__name__)
 
-settings = Settings()
+_settings = get_settings()
 
 
 class Token(BaseModel):
@@ -47,9 +47,9 @@ def encode_token(
     data: dict[str, Union[datetime, str]],
 ) -> str:
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = datetime.now(timezone.utc) + timedelta(minutes=_settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, _settings.SECRET_KEY, algorithm=_settings.ALGORITHM)
     return encoded_jwt
 
 
@@ -57,7 +57,7 @@ def decode_token(
     token: str
 ) -> dict[str, Any]:
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        payload = jwt.decode(token, _settings.SECRET_KEY, algorithms=[_settings.ALGORITHM])
         return payload
     except ExpiredSignatureError:
         logger.warning("Token expired")

@@ -8,7 +8,7 @@ from db.main import engine
 from db.users import get_by_username
 from db.verification import create_verification
 from routers.verification import send_verification_email
-from app.config import Settings
+from app.config import get_settings
 
 app = typer.Typer()
 
@@ -18,7 +18,7 @@ def send(
     username: Annotated[str, typer.Argument(help="Username (email) of the user to send a verification email to")],
 ):
     """Create a verification token and send a welcome email to the given user."""
-    settings = Settings()
+    settings = get_settings()
 
     with Session(engine) as session:
         user = get_by_username(session, username)
