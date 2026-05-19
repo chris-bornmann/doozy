@@ -10,10 +10,9 @@ from sqlmodel import Session
 from sqlalchemy import select
 from fastapi_pagination.ext.sqlalchemy import paginate
 
-from app.config import Settings
+from app.config import get_settings
 from app.security import oauth2_scheme
 
-_settings = Settings()
 from constants import UserState
 from db.main import get_session
 from db.models import Item, User, UserNoSecret
@@ -23,6 +22,9 @@ from db.verification import create_verification
 from routers.forms import User as UserForm
 from routers.verification import send_verification_email
 from util.security import decode_token, get_password_hash
+
+
+_settings = get_settings()
 
 
 router = APIRouter(
@@ -151,8 +153,7 @@ async def create_user(
     session.refresh(user)
     assign_role(session, user.id, "user")
 
-    settings = Settings()
-    raw_token = create_verification(session, user.id, settings.VERIFICATION_EXPIRE_MINUTES)
+    raw_token = create_verification(session, user.id, _settings.VERIFICATION_EXPIRE_MINUTES)
     try:
         await send_verification_email(user, raw_token)
     except Exception:

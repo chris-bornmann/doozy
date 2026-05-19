@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Request
 
-from app.config import Settings
+from app.config import get_settings
 from app.rate_limit import limiter
 
-_settings = Settings()
+_settings = get_settings()
 
 router = APIRouter(
     prefix="/health",

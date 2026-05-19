@@ -1,3 +1,4 @@
+from functools import lru_cache
 from typing import Optional
 
 from dotenv import find_dotenv
@@ -42,3 +43,8 @@ class Settings(BaseSettings):
     RATE_LIMIT_HEALTH: str = "60/minute"    # health check (unauthenticated)
 
     model_config: SettingsConfigDict = SettingsConfigDict(env_file=find_dotenv())
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()

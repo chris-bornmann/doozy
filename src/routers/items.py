@@ -4,10 +4,10 @@ from enum import Enum
 from typing import Annotated, Optional, TypeVar
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
-from app.config import Settings
+from app.config import get_settings
 from app.rate_limit import limiter
 
-_settings = Settings()
+_settings = get_settings()
 from fastapi_pagination import Page
 from sqlalchemy import and_, asc, desc, nulls_last, nullsfirst
 from sqlmodel import Session, select
