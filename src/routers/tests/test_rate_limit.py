@@ -6,10 +6,10 @@ from fastapi import Request
 from starlette.datastructures import Headers
 from starlette.types import Scope
 
-from app.config import Settings
+from app.config import get_settings
 from app.rate_limit import _get_rate_limit_key
 
-_settings = Settings()
+_settings = get_settings()
 
 
 def _make_request(headers: dict, client_host: str = "127.0.0.1") -> Request:

@@ -12,7 +12,7 @@ from app.rate_limit import limiter
 from pydantic import BaseModel, Field, field_validator
 from sqlmodel import Session, case
 
-from app.config import Settings
+from app.config import get_settings
 from app.security import oauth2_scheme
 from constants import Priority, State
 from db.items import create_item, delete_item, find, get, update
@@ -23,7 +23,7 @@ from routers.forms import ItemFilter
 
 
 logger = logging.getLogger(__name__)
-_settings = Settings()
+_settings = get_settings()
 
 router = APIRouter(
     prefix="/ai",
@@ -214,11 +214,10 @@ async def ai_request(
     data: AIRequest,
     session: Annotated[Session, Depends(get_session)],
 ) -> AIResponse:
-    settings = Settings()
-    if not settings.ANTHROPIC_API_KEY:
+    if not _settings.ANTHROPIC_API_KEY:
         raise HTTPException(status_code=503, detail="AI features are not configured")
     try:
-        resp: AIResponse = parse_item_request(data.request, settings.ANTHROPIC_API_KEY)
+        resp: AIResponse = parse_item_request(data.request, _settings.ANTHROPIC_API_KEY)
         if resp.error:
             return resp
         return _handle_ai_response(user, resp, session)
@@ -239,21 +238,20 @@ async def ai_voice_request(
     """Takes an audio file and sends it to be converted to text, and then"""
     """sends the text to be converted to an AIResponse."""
 
-    settings = Settings()
-    if not settings.ANTHROPIC_API_KEY:
+    if not _settings.ANTHROPIC_API_KEY:
         raise HTTPException(status_code=503, detail="AI features are not configured")
-    if not settings.OPENAI_API_KEY:
+    if not _settings.OPENAI_API_KEY:
         raise HTTPException(status_code=503, detail="Voice features are not configured")
 
     audio_bytes = await audio.read()
     try:
-        transcript = transcribe_audio(audio_bytes, audio.filename or "audio.webm", settings.OPENAI_API_KEY)
+        transcript = transcribe_audio(audio_bytes, audio.filename or "audio.webm", _settings.OPENAI_API_KEY)
     except Exception as exc:
         logger.error("Transcription failed: %s", exc)
         raise HTTPException(status_code=502, detail="Transcription failed")
 
     try:
-        resp = parse_item_request(transcript, settings.ANTHROPIC_API_KEY)
+        resp = parse_item_request(transcript, _settings.ANTHROPIC_API_KEY)
         resp.transcript = transcript
         if resp.error:
             return resp

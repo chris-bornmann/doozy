@@ -34,7 +34,7 @@ exclude_dirs = ["tests", "src/conftest.py"]
 
 [tool.poe.tasks]
 test      = "pytest src/routers/tests/ src/tests/ -v"
-coverage  = "pytest src/routers/tests/ src/tests/ --cov=src --cov-report=term-missing --cov-fail-under=74"
+coverage  = "pytest src/routers/tests/ src/tests/ --cov=src --cov-report=term-missing --cov-fail-under=88"
 lint      = "ruff check src/"
 format    = "ruff format src/"
 typecheck = "ty check src/"

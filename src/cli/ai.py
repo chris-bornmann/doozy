@@ -9,7 +9,7 @@ import soundfile as sf
 import typer
 from prettytable import PrettyTable
 
-from app.config import Settings
+from app.config import get_settings
 from routers.ai import parse_item_request, transcribe_audio
 
 app = typer.Typer()
@@ -20,13 +20,13 @@ def ai_request(
     request: Annotated[str, typer.Argument(help="Natural language request, e.g. 'Create a new item called Buy milk'")],
 ):
     """Parse a natural language item request using Claude and print the result."""
-    settings = Settings()
-    if not settings.ANTHROPIC_API_KEY:
+    _settings = get_settings()
+    if not _settings.ANTHROPIC_API_KEY:
         typer.echo("Error: ANTHROPIC_API_KEY is not configured.", err=True)
         raise typer.Exit(code=1)
 
     try:
-        parsed = parse_item_request(request, settings.ANTHROPIC_API_KEY)
+        parsed = parse_item_request(request, _settings.ANTHROPIC_API_KEY)
     except ValueError as exc:
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(code=1)
@@ -55,16 +55,16 @@ def ai_voice(
     audio_file: Annotated[pathlib.Path, typer.Argument(help="Path to an audio file (webm, mp4, wav, m4a, …)")],
 ):
     """Transcribe an audio file and parse the result as a natural language item request."""
-    settings = Settings()
-    if not settings.OPENAI_API_KEY:
+    _settings = get_settings()
+    if not _settings.OPENAI_API_KEY:
         typer.echo("Error: OPENAI_API_KEY is not configured.", err=True)
         raise typer.Exit(code=1)
-    if not settings.ANTHROPIC_API_KEY:
+    if not _settings.ANTHROPIC_API_KEY:
         typer.echo("Error: ANTHROPIC_API_KEY is not configured.", err=True)
         raise typer.Exit(code=1)
 
     try:
-        transcript = transcribe_audio(audio_file.read_bytes(), audio_file.name, settings.OPENAI_API_KEY)
+        transcript = transcribe_audio(audio_file.read_bytes(), audio_file.name, _settings.OPENAI_API_KEY)
     except Exception as exc:
         typer.echo(f"Transcription error: {exc}", err=True)
         raise typer.Exit(code=1)
@@ -72,7 +72,7 @@ def ai_voice(
     typer.echo(f"Transcript : {transcript}")
 
     try:
-        parsed = parse_item_request(transcript, settings.ANTHROPIC_API_KEY)
+        parsed = parse_item_request(transcript, _settings.ANTHROPIC_API_KEY)
     except ValueError as exc:
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(code=1)

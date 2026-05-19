@@ -18,7 +18,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from util.security import authenticate_user, encode_token, Token
 
 # configuration and oauth-related helpers
-from app.config import Settings
+from app.config import get_settings
 
 # helper imports for user creation in google flow
 import secrets
@@ -30,9 +30,13 @@ from fastapi.responses import RedirectResponse
 from urllib.parse import urlencode
 
 
+# load settings (reads environment or .env file)
+_settings = get_settings()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logfire.configure(token=settings.LOGFIRE_TOKEN or None)
+    logfire.configure(token=_settings.LOGFIRE_TOKEN or None)
     logfire.instrument_fastapi(app)
     logfire.instrument_httpx()
     db_create()
@@ -56,12 +60,9 @@ tags_metadata: list[dict[str, Any]] = [
 ]
 
 
-# load settings (reads environment or .env file)
-settings = Settings()
-
 # make sure the two required variables are present; we will use them a
 # couple of times later when constructing URLs/requests.
-if not settings.GOOGLE_CLIENT_ID or not settings.GOOGLE_CLIENT_SECRET:
+if not _settings.GOOGLE_CLIENT_ID or not _settings.GOOGLE_CLIENT_SECRET:
     raise RuntimeError(
         "GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set in the"
         " environment to use Google authentication"
@@ -132,7 +133,7 @@ async def root():
         },
     },
 )
-@limiter.limit(settings.RATE_LIMIT_AUTH)
+@limiter.limit(_settings.RATE_LIMIT_AUTH)
 async def login(
     request: Request,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
@@ -152,7 +153,7 @@ async def login(
 
 # oauth2 endpoints for Google ------------------------------------------------
 @app.get("/login/google")
-@limiter.limit(settings.RATE_LIMIT_AUTH)
+@limiter.limit(_settings.RATE_LIMIT_AUTH)
 async def login_google(request: Request):
     """Redirect the user to the Google authorization endpoint.
 
@@ -161,7 +162,7 @@ async def login_google(request: Request):
     """
     redirect_uri = request.url_for("auth_google")
     params = {
-        "client_id": settings.GOOGLE_CLIENT_ID,
+        "client_id": _settings.GOOGLE_CLIENT_ID,
         "response_type": "code",
         "scope": "openid email profile",
         "redirect_uri": redirect_uri,
@@ -175,7 +176,7 @@ async def login_google(request: Request):
 
 
 @app.get("/auth/google")
-@limiter.limit(settings.RATE_LIMIT_AUTH)
+@limiter.limit(_settings.RATE_LIMIT_AUTH)
 async def auth_google(request: Request, session: Session = Depends(get_session)):
     """OAuth callback endpoint that handles Google's authorization code.
 
@@ -197,8 +198,8 @@ async def auth_google(request: Request, session: Session = Depends(get_session))
             "grant_type": "authorization_code",
             "code": code,
             "redirect_uri": request.url_for("auth_google"),
-            "client_id": settings.GOOGLE_CLIENT_ID,
-            "client_secret": settings.GOOGLE_CLIENT_SECRET,
+            "client_id": _settings.GOOGLE_CLIENT_ID,
+            "client_secret": _settings.GOOGLE_CLIENT_SECRET,
         },
         headers={"Accept": "application/json"},
     )
@@ -230,7 +231,7 @@ async def auth_google(request: Request, session: Session = Depends(get_session))
         user = create_user(session, username=email, password=random_password, full_name=full_name)
 
     access_token_inner = encode_token(data={"sub": user.username})
-    gui_url = f"{settings.GUI_URL}#access_token={access_token_inner}&token_type=bearer"
+    gui_url = f"{_settings.GUI_URL}#access_token={access_token_inner}&token_type=bearer"
     return RedirectResponse(gui_url)
 
 
