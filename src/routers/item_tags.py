@@ -3,10 +3,10 @@ from enum import Enum
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from app.config import Settings
+from app.config import get_settings
 from app.rate_limit import limiter
 
-_settings = Settings()
+_settings = get_settings()
 from fastapi_pagination import Page, Params
 from fastapi_pagination.ext.sqlalchemy import paginate
 from pydantic import BaseModel

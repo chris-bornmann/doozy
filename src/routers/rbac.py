@@ -2,10 +2,10 @@ from collections import defaultdict
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from app.config import Settings
+from app.config import get_settings
 from app.rate_limit import limiter
 
-_settings = Settings()
+_settings = get_settings()
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 

@@ -2,10 +2,10 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
-from app.config import Settings
+from app.config import get_settings
 from app.rate_limit import limiter
 
-_settings = Settings()
+_settings = get_settings()
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import paginate
 from sqlmodel import Session
