@@ -31,6 +31,14 @@ class AIRequest(BaseModel):
     request: str
 
 
+def get_ai_facade() -> AI:
+    """Dependency to provide an AI facade instance with configured API keys."""
+    return AI(
+        anthropic_api_key=_settings.ANTHROPIC_API_KEY,
+        openai_api_key=_settings.OPENAI_API_KEY or ""
+    )
+
+
 def _handle_ai_response(
     user: User,
     resp: AIResponse,
@@ -77,11 +85,11 @@ async def ai_request(
     user: Annotated[User, Depends(require_permission("ai", "use"))],
     data: AIRequest,
     session: Annotated[Session, Depends(get_session)],
+    ai: Annotated[AI, Depends(get_ai_facade)],
 ) -> AIResponse:
     if not _settings.ANTHROPIC_API_KEY:
         raise HTTPException(status_code=503, detail="AI features are not configured")
     try:
-        ai = AI(anthropic_api_key=_settings.ANTHROPIC_API_KEY, openai_api_key=_settings.OPENAI_API_KEY or "")
         resp: AIResponse = ai.parse_item_request(data.request)
         if resp.error:
             return resp
@@ -99,6 +107,7 @@ async def ai_voice_request(
     user: Annotated[User, Depends(require_permission("ai", "use"))],
     session: Annotated[Session, Depends(get_session)],
     audio: UploadFile = File(...),
+    ai: Annotated[AI, Depends(get_ai_facade)],
 ) -> AIResponse:
     """Takes an audio file and sends it to be converted to text, and then"""
     """sends the text to be converted to an AIResponse."""
@@ -108,7 +117,6 @@ async def ai_voice_request(
     if not _settings.OPENAI_API_KEY:
         raise HTTPException(status_code=503, detail="Voice features are not configured")
 
-    ai = AI(anthropic_api_key=_settings.ANTHROPIC_API_KEY, openai_api_key=_settings.OPENAI_API_KEY)
     audio_bytes = await audio.read()
     try:
         transcript = ai.transcribe_audio(audio_bytes, audio.filename or "audio.webm")
