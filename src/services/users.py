@@ -1,5 +1,4 @@
 
-from fastapi import HTTPException
 from sqlmodel import Session, select
 
 from app.config import get_settings
@@ -8,6 +7,7 @@ from db import users as db_users
 from db.models import Item, User
 from db.users import get_by_username
 from db.verification import create_verification
+from exceptions import DoozyConflictError
 from rbac.roles import assign_role
 from schemas import UserForm
 from util.security import get_password_hash
@@ -23,9 +23,10 @@ def list_users_stmt():
 
 def get_user(session: Session, user_id: int) -> User:
     """Fetch a user by ID. Raises 404 if not found."""
+    from exceptions import DoozyNotFoundError
     user = db_users.get(session, user_id)
     if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise DoozyNotFoundError("User not found")
     return user
 
 
@@ -39,7 +40,7 @@ async def create_user(session: Session, data: UserForm) -> User:
     from services.verification import send_verification_email
 
     if get_by_username(session, data.username):
-        raise HTTPException(status_code=409, detail="Username already exists")
+        raise DoozyConflictError("Username already exists")
 
     user = User(
         username=data.username,

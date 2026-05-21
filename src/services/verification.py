@@ -5,7 +5,6 @@ import ssl
 import aiosmtplib
 import certifi
 from email.mime.text import MIMEText
-from fastapi import HTTPException
 from sqlmodel import Session
 
 from app.config import get_settings
@@ -13,6 +12,7 @@ from constants import UserState
 from db import users as db_users
 from db.models import User
 from db.verification import consume_verification
+from exceptions import DoozyBadRequestError, DoozyNotFoundError
 
 
 logger = logging.getLogger(__name__)
@@ -60,9 +60,9 @@ def verify_token(session: Session, raw_token: str) -> User:
     """Consume a verification token and transition the user to AUTHENTICATED."""
     record = consume_verification(session, raw_token)
     if record is None:
-        raise HTTPException(status_code=400, detail="Invalid or expired verification token")
+        raise DoozyBadRequestError("Invalid or expired verification token")
     user = db_users.get(session, record.user_id)
     if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise DoozyNotFoundError("User not found")
     db_users.update_state(session, user, UserState.AUTHENTICATED)
     return user

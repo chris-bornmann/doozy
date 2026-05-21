@@ -1,11 +1,11 @@
 
-from fastapi import HTTPException
 from sqlmodel import Session
 
 from constants import FriendshipStatus
 from db import friendships as db
 from db.models import Friendship, User
 from db.users import get as get_user, get_by_username
+from exceptions import DoozyBadRequestError, DoozyConflictError, DoozyForbiddenError, DoozyNotFoundError
 from schemas import FriendshipRead
 
 
@@ -27,21 +27,21 @@ def get_friendship(session: Session, friendship_id: int) -> Friendship:
     """Fetch a friendship by ID. Raises 404 if not found."""
     f = db.get(session, friendship_id)
     if f is None:
-        raise HTTPException(status_code=404, detail="Friendship not found")
+        raise DoozyNotFoundError("Friendship not found")
     return f
 
 
 def request_friendship(session: Session, user: User, target_username: str) -> FriendshipRead:
     """Send a friend request. Raises 400 for self-request, 404 for unknown user, 409 for duplicate."""
     if target_username == user.username:
-        raise HTTPException(status_code=400, detail="Cannot send a friend request to yourself")
+        raise DoozyBadRequestError("Cannot send a friend request to yourself")
     target = get_by_username(session, target_username)
     if target is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise DoozyNotFoundError("User not found")
     try:
         friendship = db.request(session, user.id, target.id)
     except ValueError:
-        raise HTTPException(status_code=409, detail="Friend request already exists")
+        raise DoozyConflictError("Friend request already exists")
     return enrich_friendship(session, friendship)
 
 
@@ -64,9 +64,9 @@ def accept_friendship(session: Session, user: User, friendship_id: int) -> Frien
     """Accept a pending friend request. Only the addressee can accept."""
     friendship = get_friendship(session, friendship_id)
     if friendship.addressee_id != user.id:
-        raise HTTPException(status_code=403, detail="Only the recipient can accept a friend request")
+        raise DoozyForbiddenError("Only the recipient can accept a friend request")
     if friendship.status != FriendshipStatus.PENDING:
-        raise HTTPException(status_code=409, detail="Friend request is not pending")
+        raise DoozyConflictError("Friend request is not pending")
     friendship = db.accept(session, friendship)
     return enrich_friendship(session, friendship)
 
@@ -75,9 +75,9 @@ def decline_friendship(session: Session, user: User, friendship_id: int) -> Frie
     """Decline a pending friend request. Only the addressee can decline."""
     friendship = get_friendship(session, friendship_id)
     if friendship.addressee_id != user.id:
-        raise HTTPException(status_code=403, detail="Only the recipient can decline a friend request")
+        raise DoozyForbiddenError("Only the recipient can decline a friend request")
     if friendship.status != FriendshipStatus.PENDING:
-        raise HTTPException(status_code=409, detail="Friend request is not pending")
+        raise DoozyConflictError("Friend request is not pending")
     friendship = db.decline(session, friendship)
     return enrich_friendship(session, friendship)
 
@@ -86,11 +86,11 @@ def remove_friendship(session: Session, user: User, friendship_id: int) -> None:
     """Remove a friendship. Only parties to the friendship can remove it."""
     friendship = get_friendship(session, friendship_id)
     if user.id not in (friendship.requester_id, friendship.addressee_id):
-        raise HTTPException(status_code=403, detail="Not a party to this friendship")
+        raise DoozyForbiddenError("Not a party to this friendship")
     can_remove = (
         friendship.status == FriendshipStatus.ACCEPTED
         or (friendship.status == FriendshipStatus.PENDING and friendship.requester_id == user.id)
     )
     if not can_remove:
-        raise HTTPException(status_code=409, detail="Cannot remove this friendship")
+        raise DoozyConflictError("Cannot remove this friendship")
     db.remove(session, friendship)

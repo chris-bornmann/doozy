@@ -5,6 +5,7 @@ import logfire
 import uvicorn
 
 from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi.responses import JSONResponse
 from fastapi_pagination import add_pagination
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from db.main import db_create, get_session
 from app.middleware import LoggingMiddleware, TimingMiddleware
 from app.rate_limit import limiter, rate_limit_exceeded_handler
+from exceptions import DoozyBadRequestError, DoozyConflictError, DoozyForbiddenError, DoozyNotFoundError
 from routers import ai, friendships, groups, health, item_tags, items, rbac, tags, users, verification
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -83,6 +85,26 @@ app = FastAPI(
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+
+
+@app.exception_handler(DoozyNotFoundError)
+async def _handle_not_found(request: Request, exc: DoozyNotFoundError) -> JSONResponse:
+    return JSONResponse(status_code=404, content={"detail": exc.detail})
+
+
+@app.exception_handler(DoozyForbiddenError)
+async def _handle_forbidden(request: Request, exc: DoozyForbiddenError) -> JSONResponse:
+    return JSONResponse(status_code=403, content={"detail": exc.detail})
+
+
+@app.exception_handler(DoozyConflictError)
+async def _handle_conflict(request: Request, exc: DoozyConflictError) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"detail": exc.detail})
+
+
+@app.exception_handler(DoozyBadRequestError)
+async def _handle_bad_request(request: Request, exc: DoozyBadRequestError) -> JSONResponse:
+    return JSONResponse(status_code=400, content={"detail": exc.detail})
 
 app.add_middleware(LoggingMiddleware, file_name="/tmp/doozy.log")
 app.add_middleware(TimingMiddleware)
