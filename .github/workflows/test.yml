@@ -4,9 +4,17 @@ on:
   push:
     branches-ignore:
       - main
+    paths:
+      - 'src/**/*.py'
+      - '.env'
+      - '.github/workflows/test.yml'
   pull_request:
     branches:
       - main
+    paths:
+      - 'src/**/*.py'
+      - '.env'
+      - '.github/workflows/test.yml'
 
 jobs:
   test:
