@@ -32,13 +32,14 @@ def get(
 @app.command('add')
 def add(
     name: Annotated[str, typer.Argument(help="Tag name (max 16 characters)")],
+    creator_id: Annotated[int, typer.Option('--creator-id', help="User ID of the tag creator")],
 ):
     """Add a new tag."""
     with Session(engine) as session:
         if session.exec(select(Tag).where(Tag.name == name)).first():
             typer.echo(f"Error: tag '{name}' already exists.", err=True)
             raise typer.Exit(code=1)
-        tag = Tag(name=name)
+        tag = Tag(name=name, creator_id=creator_id)
         session.add(tag)
         session.commit()
         session.refresh(tag)

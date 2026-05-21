@@ -37,7 +37,7 @@ def seeded(db_engine):
         session.refresh(user)
 
         item = Item(name="CLI test item aa", creator_id=user.id)
-        tag  = Tag(name="clitag")
+        tag  = Tag(name="clitag", creator_id=user.id)
         session.add_all([item, tag])
         session.commit()
         session.refresh(item)

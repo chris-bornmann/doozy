@@ -22,8 +22,16 @@ def db_engine():
 
 @pytest.fixture
 def runner(db_engine):
+    """Yields (CliRunner, db_engine, creator_id) with a test user pre-seeded."""
+    from db.models import User
+    with Session(db_engine) as session:
+        user = User(username="clitagsuser1", password="hashed1234")
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+        creator_id = user.id
     with patch("cli.tags.engine", db_engine):
-        yield CliRunner(), db_engine
+        yield CliRunner(), db_engine, creator_id
 
 
 # ---------------------------------------------------------------------------
@@ -31,8 +39,8 @@ def runner(db_engine):
 # ---------------------------------------------------------------------------
 
 def test_add_tag(runner):
-    cli, engine = runner
-    result = cli.invoke(app, ["add", "backend"])
+    cli, engine, creator_id = runner
+    result = cli.invoke(app, ["add", "backend", "--creator-id", str(creator_id)])
     assert result.exit_code == 0
     assert "backend" in result.output
 
@@ -43,9 +51,9 @@ def test_add_tag(runner):
 
 
 def test_add_tag_duplicate(runner):
-    cli, _ = runner
-    cli.invoke(app, ["add", "backend"])
-    result = cli.invoke(app, ["add", "backend"])
+    cli, _, creator_id = runner
+    cli.invoke(app, ["add", "backend", "--creator-id", str(creator_id)])
+    result = cli.invoke(app, ["add", "backend", "--creator-id", str(creator_id)])
     assert result.exit_code == 1
     assert "already exists" in result.output
 
@@ -55,15 +63,15 @@ def test_add_tag_duplicate(runner):
 # ---------------------------------------------------------------------------
 
 def test_get_tags_empty(runner):
-    cli, _ = runner
+    cli, _, _id = runner
     result = cli.invoke(app, ["get"])
     assert result.exit_code == 0
 
 
 def test_get_tags_lists_all(runner):
-    cli, _ = runner
-    cli.invoke(app, ["add", "alpha"])
-    cli.invoke(app, ["add", "beta"])
+    cli, _, creator_id = runner
+    cli.invoke(app, ["add", "alpha", "--creator-id", str(creator_id)])
+    cli.invoke(app, ["add", "beta", "--creator-id", str(creator_id)])
     result = cli.invoke(app, ["get"])
     assert result.exit_code == 0
     assert "alpha" in result.output
@@ -71,19 +79,19 @@ def test_get_tags_lists_all(runner):
 
 
 def test_get_tags_alphabetical(runner):
-    cli, _ = runner
+    cli, _, creator_id = runner
     for name in ["zebra", "apple", "mango"]:
-        cli.invoke(app, ["add", name])
+        cli.invoke(app, ["add", name, "--creator-id", str(creator_id)])
     result = cli.invoke(app, ["get"])
     positions = {name: result.output.index(name) for name in ["zebra", "apple", "mango"]}
     assert positions["apple"] < positions["mango"] < positions["zebra"]
 
 
 def test_get_tags_match(runner):
-    cli, _ = runner
-    cli.invoke(app, ["add", "frontend"])
-    cli.invoke(app, ["add", "backend"])
-    cli.invoke(app, ["add", "python"])
+    cli, _, creator_id = runner
+    cli.invoke(app, ["add", "frontend", "--creator-id", str(creator_id)])
+    cli.invoke(app, ["add", "backend", "--creator-id", str(creator_id)])
+    cli.invoke(app, ["add", "python", "--creator-id", str(creator_id)])
     result = cli.invoke(app, ["get", "--match", "end"])
     assert "frontend" in result.output
     assert "backend" in result.output
@@ -91,8 +99,8 @@ def test_get_tags_match(runner):
 
 
 def test_get_tags_match_no_results(runner):
-    cli, _ = runner
-    cli.invoke(app, ["add", "python"])
+    cli, _, creator_id = runner
+    cli.invoke(app, ["add", "python", "--creator-id", str(creator_id)])
     result = cli.invoke(app, ["get", "--match", "java"])
     assert result.exit_code == 0
     assert "python" not in result.output
@@ -103,8 +111,8 @@ def test_get_tags_match_no_results(runner):
 # ---------------------------------------------------------------------------
 
 def test_delete_tag(runner):
-    cli, engine = runner
-    cli.invoke(app, ["add", "removeme"])
+    cli, engine, creator_id = runner
+    cli.invoke(app, ["add", "removeme", "--creator-id", str(creator_id)])
     with Session(engine) as session:
         tag = session.exec(__import__("sqlmodel").select(Tag).where(Tag.name == "removeme")).first()
     result = cli.invoke(app, ["delete", str(tag.id)])
@@ -113,7 +121,7 @@ def test_delete_tag(runner):
 
 
 def test_delete_tag_not_found(runner):
-    cli, _ = runner
+    cli, _, _id = runner
     result = cli.invoke(app, ["delete", "9999"])
     assert result.exit_code == 1
     assert "no tag" in result.output.lower()
