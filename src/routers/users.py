@@ -17,6 +17,7 @@ from constants import UserState
 from db.main import get_session
 from db.models import Item, User, UserNoSecret
 from db.users import get, get_by_username
+from rbac.dependencies import require_permission
 from rbac.roles import assign_role
 from db.verification import create_verification
 from routers.forms import User as UserForm
@@ -85,13 +86,14 @@ async def get_current_active_user(
 async def read_users(
     request: Request,
     *,
+    user: User = Depends(require_permission("users", "read")),
     session: Session = Depends(get_session),
 ) -> Page[UserNoSecret]:
     return paginate(session, select(User),
                     transformer=lambda users: [UserNoSecret(**u.model_dump()) for u in users])
 
 
-@router.get('/me')
+@public_router.get('/me')
 @limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def read_user_me(
     request: Request,
@@ -105,32 +107,13 @@ async def read_user_me(
 async def read_user(
     request: Request,
     id: int,
+    user: User = Depends(require_permission("users", "read")),
     session: Session = Depends(get_session),
 ) -> UserNoSecret:
     user = get(session, id)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
     return UserNoSecret(**user.model_dump())
-
-
-@router.options('/')
-async def options_users() -> Response:
-    return Response(headers={"Allow": "GET, POST, OPTIONS"}, status_code=204)
-
-
-@router.options('/me')
-async def options_user_me() -> Response:
-    return Response(headers={"Allow": "GET, OPTIONS"}, status_code=204)
-
-
-@router.options('/{id}')
-async def options_user(id: int) -> Response:
-    return Response(headers={"Allow": "GET, OPTIONS"}, status_code=204)
-
-
-@router.options('/{id}/items')
-async def options_user_items(id: int) -> Response:
-    return Response(headers={"Allow": "GET, OPTIONS"}, status_code=204)
 
 
 @public_router.post('/')
@@ -167,6 +150,27 @@ async def create_user(
 async def read_user_items(
     request: Request,
     id: int,
+    user: User = Depends(require_permission("users", "read")),
     session: Session = Depends(get_session),
 ) -> Page[Item]:
     return paginate(session, select(Item).where(Item.creator_id == id))
+
+
+@router.options('/')
+async def options_users() -> Response:
+    return Response(headers={"Allow": "GET, POST, OPTIONS"}, status_code=204)
+
+
+@router.options('/me')
+async def options_user_me() -> Response:
+    return Response(headers={"Allow": "GET, OPTIONS"}, status_code=204)
+
+
+@router.options('/{id}')
+async def options_user(id: int) -> Response:
+    return Response(headers={"Allow": "GET, OPTIONS"}, status_code=204)
+
+
+@router.options('/{id}/items')
+async def options_user_items(id: int) -> Response:
+    return Response(headers={"Allow": "GET, OPTIONS"}, status_code=204)
