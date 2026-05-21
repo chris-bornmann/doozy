@@ -17,10 +17,11 @@ dependencies = [
     "pwdlib[argon2]>=0.3.0",
     "pydantic-settings>=2.13.0",
     "pyjwt[crypto]>=2.10.1",
-    "python-multipart>=0.0.27",
+    "python-multipart>=0.0.20",
     "casbin>=1.36.0",
     "logfire[fastapi,sqlalchemy,httpx]>=3.0.0",
     "slowapi>=0.1.9",
+    "psycopg2-binary>=2.9",
     "sqlmodel>=0.0.27",
     "typer>=0.20.0",
 ]
@@ -39,6 +40,7 @@ lint      = "ruff check src/"
 format    = "ruff format src/"
 typecheck = "ty check src/"
 run       = "uvicorn app.main:app --reload --app-dir src"
+
 [tool.poe.tasks.cli]
 cmd = "python -m cli.main"
 env = {PYTHONPATH = "src"}
@@ -52,7 +54,7 @@ dev = [
     "httpx>=0.28.1",
     "poethepoet>=0.42.1",
     "prettytable>=3.17.0",
-    "pytest>=9.0.3",
+    "pytest>=9.0.2",
     "pytest-cov>=7.1.0",
     "ruff>=0.14.5",
     "ty>=0.0.1a26",

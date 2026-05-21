@@ -106,8 +106,8 @@ async def ai_voice_request(
     request: Request,
     user: Annotated[User, Depends(require_permission("ai", "use"))],
     session: Annotated[Session, Depends(get_session)],
-    audio: UploadFile = File(...),
     ai: Annotated[AI, Depends(get_ai_facade)],
+    audio: UploadFile = File(...),
 ) -> AIResponse:
     """Takes an audio file and sends it to be converted to text, and then"""
     """sends the text to be converted to an AIResponse."""

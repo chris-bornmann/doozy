@@ -6,7 +6,10 @@ from app.config import get_settings
 
 
 _settings = get_settings()
-engine = create_engine(_settings.DATABASE_URL, connect_args={"check_same_thread": False})
+# check_same_thread is SQLite-only; omit it for other drivers
+_is_sqlite = _settings.DATABASE_URL.startswith("sqlite")
+_connect_args = {"check_same_thread": False} if _is_sqlite else {}
+engine = create_engine(_settings.DATABASE_URL, connect_args=_connect_args)
 logfire.instrument_sqlalchemy(engine=engine)
 
 

@@ -1,0 +1,35 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: doozy
+      POSTGRES_PASSWORD: doozy
+      POSTGRES_DB: doozy
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U doozy"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  doozy-app:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./.env.compose:/server/.env:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
+  doozy-web:
+    image: doozy-web:latest
+    ports:
+      - "8080:80"
+    # volumes:
+    #   - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    #   - ./nginx/html:/usr/share/nginx/html:ro
+
+volumes:
+  postgres_data:
