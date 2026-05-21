@@ -3,6 +3,7 @@ from typing import Optional
 
 from sqlmodel import Session, select
 
+from constants import UserState
 from db.models import User
 
 
@@ -20,6 +21,12 @@ def get_by_username(session: Session, username: str) -> Optional[User]:
 
 def remove(session: Session, user: User) -> None:
     session.delete(user)
+    session.commit()
+
+
+def update_state(session: Session, user: User, new_state: UserState) -> None:
+    user.state = new_state
+    session.add(user)
     session.commit()
 
 

@@ -1,3 +1,5 @@
+from typing import Optional
+
 from sqlmodel import Session, select
 
 from db.models import UserRole
@@ -22,3 +24,13 @@ def revoke_role(session: Session, user_id: int, role: str) -> None:
 
 def get_roles(session: Session, user_id: int) -> list[str]:
     return [r.role for r in session.exec(select(UserRole).where(UserRole.user_id == user_id)).all()]
+
+
+def get_role_assignment(session: Session, user_id: int, role: str) -> Optional[UserRole]:
+    return session.exec(
+        select(UserRole).where(UserRole.user_id == user_id, UserRole.role == role)
+    ).first()
+
+
+def get_all_assignments(session: Session) -> list[UserRole]:
+    return session.exec(select(UserRole)).all()

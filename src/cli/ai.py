@@ -10,7 +10,8 @@ import typer
 from prettytable import PrettyTable
 
 from app.config import get_settings
-from routers.ai import parse_item_request, transcribe_audio
+from util.ai import AI, get_ai_facade
+
 
 app = typer.Typer()
 
@@ -25,8 +26,10 @@ def ai_request(
         typer.echo("Error: ANTHROPIC_API_KEY is not configured.", err=True)
         raise typer.Exit(code=1)
 
+    ai = get_ai_facade()
+
     try:
-        parsed = parse_item_request(request, _settings.ANTHROPIC_API_KEY)
+        parsed = ai.parse_item_request(request)
     except ValueError as exc:
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(code=1)
@@ -63,8 +66,10 @@ def ai_voice(
         typer.echo("Error: ANTHROPIC_API_KEY is not configured.", err=True)
         raise typer.Exit(code=1)
 
+    ai = get_ai_facade()
+
     try:
-        transcript = transcribe_audio(audio_file.read_bytes(), audio_file.name, _settings.OPENAI_API_KEY)
+        transcript = ai.transcribe_audio(audio_file.read_bytes(), audio_file.name)
     except Exception as exc:
         typer.echo(f"Transcription error: {exc}", err=True)
         raise typer.Exit(code=1)

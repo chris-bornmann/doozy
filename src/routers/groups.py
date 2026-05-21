@@ -1,27 +1,23 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, Request, Response
 from app.config import get_settings
 from app.rate_limit import limiter
-
-_settings = get_settings()
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import paginate
 from pydantic import BaseModel, Field
-from sqlalchemy import exc
 from sqlmodel import Session
 
 from app.security import oauth2_scheme
-from constants import FriendshipStatus
-from db import friendships as db_friends
-from db import groups as db
 from db.main import get_session
-from db.models import Group, User
-from db.users import get as get_user, get_by_username
+from db.models import User
 from rbac.dependencies import require_permission
-from routers.forms import GroupRead
+from schemas import GroupRead
+import services.groups as group_service
 
+
+_settings = get_settings()
 
 router = APIRouter(
     prefix="/groups",
@@ -35,25 +31,6 @@ class GroupCreate(BaseModel):
     name: str = Field(max_length=64, min_length=1)
 
 
-def _to_read(session: Session, group: Group) -> GroupRead:
-    owner = get_user(session, group.owner_id)
-    group_members = db.members(session, group.id)
-    return GroupRead(
-        id=group.id,
-        name=group.name,
-        owner=owner.username,
-        members=[u.username for u in group_members],
-        created_on=group.created_on,
-    )
-
-
-def _get_or_404(session: Session, group_id: int) -> Group:
-    group = db.get(session, group_id)
-    if group is None:
-        raise HTTPException(status_code=404, detail="Group not found")
-    return group
-
-
 # TODO: Need a solution for duplicate groups names amongst unrelated parties.
 @router.post("/", status_code=201)
 @limiter.limit(_settings.RATE_LIMIT_DEFAULT)
@@ -63,11 +40,7 @@ async def create_group(
     user: Annotated[User, Depends(require_permission("groups", "write"))],
     session: Session = Depends(get_session),
 ) -> GroupRead:
-    try:
-        group = db.create(session, name=data.name, owner_id=user.id)
-    except exc.IntegrityError:
-        raise HTTPException(status_code=409, detail="A group with that name already exists")
-    return _to_read(session, group)
+    return group_service.create_group(session, user, data.name)
 
 
 @router.get("/")
@@ -79,8 +52,8 @@ async def list_groups(
 ) -> Page[GroupRead]:
     return paginate(
         session,
-        db.my_groups_stmt(user.id),
-        transformer=lambda rows: [_to_read(session, g) for g in rows],
+        group_service.list_groups_stmt(user.id),
+        transformer=lambda rows: [group_service.enrich_group(session, g) for g in rows],
     )
 
 
@@ -92,10 +65,7 @@ async def get_group(
     user: Annotated[User, Depends(require_permission("groups", "read"))],
     session: Session = Depends(get_session),
 ) -> GroupRead:
-    group = _get_or_404(session, id)
-    if db.get_member(session, id, user.id) is None:
-        raise HTTPException(status_code=403, detail="Not a member of this group")
-    return _to_read(session, group)
+    return group_service.get_group(session, user, id)
 
 
 @router.delete("/{id}")
@@ -106,10 +76,7 @@ async def delete_group(
     user: Annotated[User, Depends(require_permission("groups", "delete"))],
     session: Session = Depends(get_session),
 ) -> dict[str, bool]:
-    group = _get_or_404(session, id)
-    if group.owner_id != user.id:
-        raise HTTPException(status_code=403, detail="Only the owner can delete a group")
-    db.delete(session, group)
+    group_service.delete_group(session, user, id)
     return {"ok": True}
 
 
@@ -125,19 +92,7 @@ async def add_member(
     user: Annotated[User, Depends(require_permission("groups", "write"))],
     session: Session = Depends(get_session),
 ) -> GroupRead:
-    group = _get_or_404(session, id)
-    if group.owner_id != user.id:
-        raise HTTPException(status_code=403, detail="Only the owner can add members")
-    target = get_by_username(session, username)
-    if target is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    if db.get_member(session, id, target.id) is not None:
-        raise HTTPException(status_code=409, detail="User is already a member of this group")
-    friendship = db_friends.get_between(session, user.id, target.id)
-    if friendship is None or friendship.status != FriendshipStatus.ACCEPTED:
-        raise HTTPException(status_code=403, detail="You can only add friends to a group")
-    db.add_member(session, id, target.id)
-    return _to_read(session, group)
+    return group_service.add_member(session, user, id, username)
 
 
 @router.delete("/{id}/members/{username}")
@@ -149,18 +104,7 @@ async def remove_member(
     user: Annotated[User, Depends(require_permission("groups", "delete"))],
     session: Session = Depends(get_session),
 ) -> dict[str, bool]:
-    group = _get_or_404(session, id)
-    if group.owner_id != user.id:
-        raise HTTPException(status_code=403, detail="Only the owner can remove members")
-    target = get_by_username(session, username)
-    if target is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    if target.id == group.owner_id:
-        raise HTTPException(status_code=409, detail="The owner cannot be removed from their own group")
-    gm = db.get_member(session, id, target.id)
-    if gm is None:
-        raise HTTPException(status_code=404, detail="User is not a member of this group")
-    db.remove_member(session, gm)
+    group_service.remove_member(session, user, id, username)
     return {"ok": True}
 
 
