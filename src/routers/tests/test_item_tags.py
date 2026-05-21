@@ -18,8 +18,8 @@ def _make_item(session, user, name="Test item aaaa"):
     return item
 
 
-def _make_tag(session, name="testtag"):
-    tag = Tag(name=name)
+def _make_tag(session, creator_id, name="testtag"):
+    tag = Tag(name=name, creator_id=creator_id)
     session.add(tag)
     session.commit()
     session.refresh(tag)
@@ -33,7 +33,7 @@ def _make_tag(session, name="testtag"):
 def test_assign_tag(auth_headers, session):
     client, user = auth_headers
     item = _make_item(session, user)
-    tag  = _make_tag(session)
+    tag  = _make_tag(session, user.id)
     response = client.post("/item_tags/", json={"item_id": item.id, "tag_id": tag.id})
     assert response.status_code == 200
     data = response.json()
@@ -44,14 +44,14 @@ def test_assign_tag(auth_headers, session):
 def test_assign_tag_duplicate(auth_headers, session):
     client, user = auth_headers
     item = _make_item(session, user)
-    tag  = _make_tag(session)
+    tag  = _make_tag(session, user.id)
     client.post("/item_tags/", json={"item_id": item.id, "tag_id": tag.id})
     assert client.post("/item_tags/", json={"item_id": item.id, "tag_id": tag.id}).status_code == 409
 
 
 def test_assign_tag_item_not_found(auth_headers, session):
-    client, _ = auth_headers
-    tag = _make_tag(session)
+    client, user = auth_headers
+    tag = _make_tag(session, user.id)
     assert client.post("/item_tags/", json={"item_id": 9999, "tag_id": tag.id}).status_code == 404
 
 
@@ -62,10 +62,10 @@ def test_assign_tag_tag_not_found(auth_headers, session):
 
 
 def test_assign_tag_wrong_owner(auth_headers, session):
-    client, _ = auth_headers
+    client, user = auth_headers
     other = create_user(session, username="otheruserA1", password="password1234")
     item  = _make_item(session, other, name="Other user item!")
-    tag   = _make_tag(session)
+    tag   = _make_tag(session, user.id)
     assert client.post("/item_tags/", json={"item_id": item.id, "tag_id": tag.id}).status_code == 403
 
 
@@ -80,8 +80,8 @@ def test_assign_tag_requires_auth(client):
 def test_list_tags_for_item(auth_headers, session):
     client, user = auth_headers
     item  = _make_item(session, user)
-    tag1  = _make_tag(session, "alpha")
-    tag2  = _make_tag(session, "beta")
+    tag1  = _make_tag(session, user.id, "alpha")
+    tag2  = _make_tag(session, user.id, "beta")
     session.add_all([ItemTag(item_id=item.id, tag_id=tag1.id),
                      ItemTag(item_id=item.id, tag_id=tag2.id)])
     session.commit()
@@ -119,7 +119,7 @@ def test_list_items_for_tag(auth_headers, session):
     client, user = auth_headers
     item1 = _make_item(session, user, "First item aaaaa")
     item2 = _make_item(session, user, "Second item bbbb")
-    tag   = _make_tag(session, "shared")
+    tag   = _make_tag(session, user.id, "shared")
     session.add_all([ItemTag(item_id=item1.id, tag_id=tag.id),
                      ItemTag(item_id=item2.id, tag_id=tag.id)])
     session.commit()
@@ -134,7 +134,7 @@ def test_list_items_for_tag_only_current_user(auth_headers, session):
     other      = create_user(session, username="otheruserC3", password="password1234")
     my_item    = _make_item(session, user,  "My item aaaaaa")
     their_item = _make_item(session, other, "Their item aaaa")
-    tag        = _make_tag(session, "shared2")
+    tag        = _make_tag(session, user.id, "shared2")
     session.add_all([ItemTag(item_id=my_item.id,    tag_id=tag.id),
                      ItemTag(item_id=their_item.id, tag_id=tag.id)])
     session.commit()
@@ -159,7 +159,7 @@ def test_list_item_tags_requires_auth(client):
 def test_remove_assignment(auth_headers, session):
     client, user = auth_headers
     item = _make_item(session, user)
-    tag  = _make_tag(session)
+    tag  = _make_tag(session, user.id)
     session.add(ItemTag(item_id=item.id, tag_id=tag.id))
     session.commit()
     response = client.request("DELETE", "/item_tags/", json={"item_id": item.id, "tag_id": tag.id})
@@ -171,15 +171,15 @@ def test_remove_assignment(auth_headers, session):
 def test_remove_assignment_not_found(auth_headers, session):
     client, user = auth_headers
     item = _make_item(session, user)
-    tag  = _make_tag(session)
+    tag  = _make_tag(session, user.id)
     assert client.request("DELETE", "/item_tags/", json={"item_id": item.id, "tag_id": tag.id}).status_code == 404
 
 
 def test_remove_assignment_wrong_owner(auth_headers, session):
-    client, _ = auth_headers
+    client, user = auth_headers
     other = create_user(session, username="otheruserD4", password="password1234")
     item  = _make_item(session, other, name="Not mine itemaa")
-    tag   = _make_tag(session)
+    tag   = _make_tag(session, user.id)
     session.add(ItemTag(item_id=item.id, tag_id=tag.id))
     session.commit()
     assert client.request("DELETE", "/item_tags/", json={"item_id": item.id, "tag_id": tag.id}).status_code == 403

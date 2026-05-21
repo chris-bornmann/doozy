@@ -9,6 +9,7 @@ _settings = get_settings()
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import paginate
 from pydantic import BaseModel, Field
+from sqlalchemy import exc
 from sqlmodel import Session
 
 from app.security import oauth2_scheme
@@ -64,7 +65,7 @@ async def create_group(
 ) -> GroupRead:
     try:
         group = db.create(session, name=data.name, owner_id=user.id)
-    except Exception:
+    except exc.IntegrityError:
         raise HTTPException(status_code=409, detail="A group with that name already exists")
     return _to_read(session, group)
 

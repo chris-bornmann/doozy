@@ -136,3 +136,63 @@ def test_delete_tag_removes_item_tag_entries(admin_client, session):
 
 def test_delete_tag_requires_auth(client):
     assert client.delete("/tags/1").status_code == 401
+
+
+def test_delete_own_unused_tag_as_regular_user(auth_headers, session):
+    client, user = auth_headers
+    tag = Tag(name="mytag", creator_id=user.id)
+    session.add(tag)
+    session.commit()
+    session.refresh(tag)
+    assert client.delete(f"/tags/{tag.id}").status_code == 200
+
+
+def test_delete_tag_created_by_another_user(auth_headers, session):
+    client, user = auth_headers
+    other = create_user(session, username="otheruser1", password="password1234")
+    tag = Tag(name="theirtag", creator_id=other.id)
+    session.add(tag)
+    session.commit()
+    session.refresh(tag)
+    assert client.delete(f"/tags/{tag.id}").status_code == 403
+
+
+def test_delete_own_tag_that_is_in_use(auth_headers, session):
+    client, user = auth_headers
+    item = Item(name="An item for testing", creator_id=user.id)
+    session.add(item)
+    tag = Tag(name="usedtag", creator_id=user.id)
+    session.add(tag)
+    session.commit()
+    session.refresh(item)
+    session.refresh(tag)
+    session.add(ItemTag(item_id=item.id, tag_id=tag.id))
+    session.commit()
+    assert client.delete(f"/tags/{tag.id}").status_code == 403
+
+
+def test_admin_can_delete_tag_created_by_other(admin_client, session):
+    client, _ = admin_client
+    other = create_user(session, username="otheruser2", password="password1234")
+    tag = Tag(name="otherstag", creator_id=other.id)
+    session.add(tag)
+    session.commit()
+    session.refresh(tag)
+    assert client.delete(f"/tags/{tag.id}").status_code == 200
+
+
+def test_admin_can_delete_assigned_tag(admin_client, session):
+    client, user = admin_client
+    item = Item(name="An item for admin test", creator_id=user.id)
+    session.add(item)
+    tag = Tag(name="assignedtag", creator_id=user.id)
+    session.add(tag)
+    session.commit()
+    session.refresh(item)
+    session.refresh(tag)
+    session.add(ItemTag(item_id=item.id, tag_id=tag.id))
+    session.commit()
+
+    assert client.delete(f"/tags/{tag.id}").status_code == 200
+    remaining = session.exec(select(ItemTag).where(ItemTag.tag_id == tag.id)).all()
+    assert remaining == []

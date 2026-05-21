@@ -19,9 +19,10 @@ from fastapi.testclient import TestClient
 # Tag management: admin-only write/delete
 # ---------------------------------------------------------------------------
 
-def test_user_cannot_create_tag(auth_headers):
+def test_user_can_create_tag(auth_headers):
+    # Users have item_tags:write permission, which gates tag creation.
     client, _ = auth_headers
-    assert client.post("/tags/", json={"name": "notallowed"}).status_code == 403
+    assert client.post("/tags/", json={"name": "allowed"}).status_code == 200
 
 
 def test_user_cannot_delete_tag(admin_client, auth_headers):
