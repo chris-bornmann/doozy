@@ -1,4 +1,3 @@
-
 import datetime as dt
 from enum import Enum
 from typing import Annotated, Optional, TypeVar
@@ -7,7 +6,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from app.config import get_settings
 from app.rate_limit import limiter
 
-_settings = get_settings()
 from fastapi_pagination import Page
 from sqlalchemy import and_, asc, desc, nulls_last, nullsfirst
 from sqlmodel import Session, select
@@ -35,6 +33,9 @@ class SortBy(str, Enum):
     due_on     = "due_on"
     state      = "state"
     custom     = "custom"
+
+
+_settings = get_settings()
 
 
 router = APIRouter(
@@ -82,7 +83,6 @@ def _owned_by(user_id: int):
         )
     )
 
-    # ...and not just that, but maybe created by me?
     return select(Item).where(
         sa.or_(
             Item.id.in_(accessible),
@@ -174,6 +174,16 @@ async def read_items(
     sort_by: SortBy = Query(default=SortBy.created_on),
     reverse: bool = Query(default=False),
 ) -> CustomPage[ItemRead]:
+    
+    """
+    Fetch work items *created by* the current user.
+    
+    This method doesn't have much use today because we're typically interested in
+    "visible to" rather than "created by", but it's here for completeness and
+    future use.  The /search endpoint is more likely to be used, and it supports
+    the same sorting options plus filtering.
+    """
+
     if sort_by == SortBy.custom:
         col = UserItemOrder.order_key
         order_expr = desc(col) if reverse else asc(col)
@@ -260,11 +270,6 @@ async def search_items(
     return paginate(session, _apply_filters(stmt, filter), transformer=lambda items: _to_item_reads(session, items))
 
 
-@router.options('/search')
-async def options_items_search() -> Response:
-    return Response(headers={"Allow": "POST, OPTIONS"}, status_code=204)
-
-
 @router.get("/{id}")
 @limiter.limit(_settings.RATE_LIMIT_DEFAULT)
 async def read_item(
@@ -306,6 +311,7 @@ async def patch_item(
     item = get(session, id)
     if item is None:
         raise HTTPException(status_code=404, detail="Item not found")
+    
     # TODO: The creator, owner, or group member can edit the item.
     # Maybe that should be configurable so that group members can't edit?
     ownership = _get_ownership(session, id)
@@ -363,15 +369,18 @@ async def assign_to_user(
     target = get_by_username(session, username)
     if target is None:
         raise HTTPException(status_code=404, detail="User not found")
+    
     # Friendship required unless transferring to self
     if target.id != user.id:
         friendship = db_friends.get_between(session, user.id, target.id)
         if friendship is None or friendship.status != FriendshipStatus.ACCEPTED:
             raise HTTPException(status_code=403, detail="You can only transfer ownership to a friend")
+        
     # If the item is in a group, the new owner must be a member of that group
     if ownership.group_id is not None:
         if db_groups.get_member(session, ownership.group_id, target.id) is None:
             raise HTTPException(status_code=403, detail="New owner must be a member of the item's group")
+        
     ownership.user_id = target.id
     # group_id is intentionally left unchanged
     session.add(ownership)
@@ -394,11 +403,13 @@ async def assign_to_group(
     ownership = _get_ownership(session, id)
     if ownership.user_id != user.id:
         raise HTTPException(status_code=403, detail="Only the owner can assign a group")
+    
     group = db_groups.get(session, group_id)
     if group is None:
         raise HTTPException(status_code=404, detail="Group not found")
     if db_groups.get_member(session, group_id, user.id) is None:
         raise HTTPException(status_code=403, detail="You are not a member of that group")
+    
     ownership.group_id = group_id
     # user_id is intentionally left unchanged
     session.add(ownership)
@@ -424,6 +435,29 @@ async def unassign_group(
     session.add(ownership)
     session.commit()
     return {"ok": True}
+
+
+@router.delete('/{id}')
+@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
+async def remove_item(
+    request: Request,
+    user: Annotated[User, Depends(require_permission("items", "delete"))],
+    id: int,
+    session: Session = Depends(get_session),
+) -> dict[str, bool]:
+    item = get(session, id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Item not found")
+    ownership = _get_ownership(session, id)
+    if ownership.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Only the owner can delete this item")
+    delete_item(session, item)
+    return {'ok': True}
+
+
+@router.options('/search')
+async def options_items_search() -> Response:
+    return Response(headers={"Allow": "POST, OPTIONS"}, status_code=204)
 
 
 @router.options('/{id}/assign/user/{username}')
@@ -454,21 +488,3 @@ async def options_item(id: int) -> Response:
 @router.options('/{id}/reorder')
 async def options_item_reorder(id: int) -> Response:
     return Response(headers={"Allow": "POST, OPTIONS"}, status_code=204)
-
-
-@router.delete('/{id}')
-@limiter.limit(_settings.RATE_LIMIT_DEFAULT)
-async def remove_item(
-    request: Request,
-    user: Annotated[User, Depends(require_permission("items", "delete"))],
-    id: int,
-    session: Session = Depends(get_session),
-) -> dict[str, bool]:
-    item = get(session, id)
-    if item is None:
-        raise HTTPException(status_code=404, detail="Item not found")
-    ownership = _get_ownership(session, id)
-    if ownership.user_id != user.id:
-        raise HTTPException(status_code=403, detail="Only the owner can delete this item")
-    delete_item(session, item)
-    return {'ok': True}

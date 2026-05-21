@@ -104,6 +104,7 @@ app.include_router(verification.router)
 # web hosted site where the GUI is served from.
 origins = [
     "http://localhost:5173",  # Local dev/test.
+    "http://localhost:8080",  # Local docker (exposed nginx port is 8080).
     "http://100.104.51.111:5173",  # Tailscale.
 ]
 

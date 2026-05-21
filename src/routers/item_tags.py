@@ -6,7 +6,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from app.config import get_settings
 from app.rate_limit import limiter
 
-_settings = get_settings()
 from fastapi_pagination import Page, Params
 from fastapi_pagination.ext.sqlalchemy import paginate
 from pydantic import BaseModel
@@ -27,6 +26,9 @@ class LookupBy(str, Enum):
 class ItemTagForm(BaseModel):
     item_id: int
     tag_id: int
+
+
+_settings = get_settings()
 
 
 router = APIRouter(
