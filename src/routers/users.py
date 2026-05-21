@@ -1,9 +1,8 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from app.rate_limit import limiter
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi_pagination import Page
 
 from sqlmodel import Session
@@ -22,7 +21,7 @@ from rbac.roles import assign_role
 from db.verification import create_verification
 from routers.forms import User as UserForm
 from routers.verification import send_verification_email
-from util.security import decode_token, get_password_hash
+from util.security import get_current_user, get_password_hash
 
 
 _settings = get_settings()
@@ -35,42 +34,13 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
+
 # Public router — no auth required (e.g. registration)
 public_router = APIRouter(
     prefix="/users",
     tags=["users"],
     responses={409: {"description": "Conflict"}},
 )
-
-
-async def get_current_user(
-    token: Annotated[str, Depends(oauth2_scheme)],
-    session: Session = Depends(get_session),
-) -> User:
-    data = decode_token(token)
-    if data.get('error'):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f'Invalid authentication credentials: {data['error']}',
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    username = data.get('sub')
-    if username is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials: missing sub",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    user = get_by_username(session, username)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    return user
 
 
 async def get_current_active_user(
