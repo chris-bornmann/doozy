@@ -84,6 +84,7 @@ class Tag(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str = Field(max_length=16, unique=True, index=True)
+    creator_id: int = Field(foreign_key='users.id')
 
 
 class ItemTag(SQLModel, table=True):

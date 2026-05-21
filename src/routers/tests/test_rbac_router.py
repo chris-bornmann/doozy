@@ -34,11 +34,13 @@ def test_my_permissions_returns_dict(auth_headers):
 
 
 def test_my_permissions_user_cannot_write_tags(auth_headers):
+    # Tag operations are governed by item_tags permissions, not tags permissions.
+    # Users have item_tags:read/write/delete, so they can read/create/delete (own) tags.
     client, _ = auth_headers
     data = client.get("/rbac/me/permissions").json()
     assert "write" not in data.get("tags", [])
     assert "delete" not in data.get("tags", [])
-    assert "read" in data.get("tags", [])
+    assert set(data.get("item_tags", [])) >= {"read", "write", "delete"}
 
 
 def test_my_permissions_admin_can_write_tags(admin_client):

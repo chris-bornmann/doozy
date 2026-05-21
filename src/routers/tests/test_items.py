@@ -819,7 +819,7 @@ def test_search_filter_by_single_tag(auth_headers, session):
     client, user = auth_headers
     tagged   = Item(name="Tagged item aaaaaaaa", creator_id=user.id)
     untagged = Item(name="Untagged item aaaaaa", creator_id=user.id)
-    tag = Tag(name="urgent")
+    tag = Tag(name="urgent", creator_id=user.id)
     session.add_all([tagged, untagged, tag])
     session.flush()
     for item in [tagged, untagged]:
@@ -838,8 +838,8 @@ def test_search_filter_by_multiple_tags_or_semantics(auth_headers, session):
     item_b  = Item(name="Item with tag urgent!", creator_id=user.id)
     item_ab = Item(name="Item with both tags!!", creator_id=user.id)
     item_c  = Item(name="Item with no tags aaa", creator_id=user.id)
-    tag_w = Tag(name="work")
-    tag_u = Tag(name="urgent2")
+    tag_w = Tag(name="work", creator_id=user.id)
+    tag_u = Tag(name="urgent2", creator_id=user.id)
     session.add_all([item_a, item_b, item_ab, item_c, tag_w, tag_u])
     session.flush()
     for item in [item_a, item_b, item_ab, item_c]:
@@ -861,7 +861,7 @@ def test_search_filter_by_multiple_tags_or_semantics(auth_headers, session):
 
 def test_search_filter_combined(auth_headers, session):
     client, user = auth_headers
-    tag = Tag(name="combined-tag")
+    tag = Tag(name="combined-tag", creator_id=user.id)
     session.add(tag)
     session.commit()
 
