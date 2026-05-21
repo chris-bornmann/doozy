@@ -1,4 +1,15 @@
 
+# Initialize a new DB.
+uv run python3 src/cli/main.py db create --seed
+uv run python3 src/cli/main.py db blitz
+
+# When using Postgres
+psql -h db -p 5432 -U doozy
+\d : Show tables
+
+
+----
+
 Install UV for package management -
 curl -LsSf https://astral.sh/uv/install.sh | sudo sh
 

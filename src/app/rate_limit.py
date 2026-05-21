@@ -39,6 +39,7 @@ def _get_rate_limit_key(request: Request) -> str:
     forwarded_for = request.headers.get("X-Forwarded-For")
     if forwarded_for:
         return f"ip:{forwarded_for.split(',')[0].strip()}"
+    
     return f"ip:{request.client.host if request.client else 'unknown'}"
 
 

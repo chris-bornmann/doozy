@@ -1,9 +1,3 @@
-# docker build -t doozy-app .  
-# docker run -p 8000:8000 --mount type=bind,source=./database.db,target=/server/database.db doozy-app
-# docker run -p 8000:8000 -it --mount type=bind,source=./database.db,target=/server/database.db doozy-app /bin/bash
-#   uv run fastapi run src/app/main.py
-# docker run -p 8000:8000 -v database.db:/server/database.db doozy-app
-
 # Stage 1: Build environment
 FROM ghcr.io/astral-sh/uv:python3.14-trixie-slim AS builder
 

@@ -6,9 +6,16 @@ dist/
 wheels/
 *.egg-info
 
+# Tools
+.coverage
+
 # Virtual environments
 .venv
 
 # Local dev files.
 database.db
 .env
+.env.compose
+.env.sqlite
+.env.dev
+.env.aws
