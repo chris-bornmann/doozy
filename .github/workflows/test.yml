@@ -4,9 +4,15 @@ on:
   push:
     branches-ignore:
       - main
+    paths:
+      - 'src/**/*.py'
+      - '.env'
   pull_request:
     branches:
       - main
+    paths:
+      - 'src/**/*.py'
+      - '.env'
 
 jobs:
   test:
