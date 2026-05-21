@@ -1,25 +1,23 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from fastapi import APIRouter, Depends, Request, Response
 from app.config import get_settings
 from app.rate_limit import limiter
-
-_settings = get_settings()
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import paginate
 from sqlmodel import Session
 
 from app.security import oauth2_scheme
 from db.main import get_session
-from db.models import Friendship, UserNoSecret
-from db import friendships as db
-from db.users import get as get_user, get_by_username
+from db.models import UserNoSecret
 from rbac.dependencies import require_permission
 from db.models import User
-from constants import FriendshipStatus
-from routers.forms import FriendshipRead
+from schemas import FriendshipRead
+import services.friendships as friendship_service
 
+
+_settings = get_settings()
 
 router = APIRouter(
     prefix="/friends",
@@ -27,27 +25,6 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
     dependencies=[Depends(oauth2_scheme)],
 )
-
-
-def _to_read(session: Session, friendship: Friendship) -> FriendshipRead:
-    """Build a FriendshipRead with resolved usernames (no IDs exposed)."""
-    requester = get_user(session, friendship.requester_id)
-    addressee = get_user(session, friendship.addressee_id)
-    return FriendshipRead(
-        id=friendship.id,
-        requester=requester.username,
-        addressee=addressee.username,
-        status=friendship.status,
-        created_on=friendship.created_on,
-        updated_on=friendship.updated_on,
-    )
-
-
-def _get_or_404(session: Session, friendship_id: int):
-    f = db.get(session, friendship_id)
-    if f is None:
-        raise HTTPException(status_code=404, detail="Friendship not found")
-    return f
 
 
 # TODO: Add additional responses for all the status codes (400, 409, etc).
@@ -59,16 +36,7 @@ async def request_friendship(
     user: Annotated[User, Depends(require_permission("friendships", "write"))],
     session: Session = Depends(get_session),
 ) -> FriendshipRead:
-    if username == user.username:
-        raise HTTPException(status_code=400, detail="Cannot send a friend request to yourself")
-    target = get_by_username(session, username)
-    if target is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    try:
-        friendship = db.request(session, user.id, target.id)
-    except ValueError:
-        raise HTTPException(status_code=409, detail="Friend request already exists")
-    return _to_read(session, friendship)
+    return friendship_service.request_friendship(session, user, username)
 
 
 @router.get("/")
@@ -80,7 +48,7 @@ async def list_friends(
 ) -> Page[UserNoSecret]:
     return paginate(
         session,
-        db.friends_stmt(user.id),
+        friendship_service.list_friends_stmt(user.id),
         transformer=lambda users: [UserNoSecret(**u.model_dump()) for u in users],
     )
 
@@ -94,8 +62,8 @@ async def list_pending(
 ) -> Page[FriendshipRead]:
     return paginate(
         session,
-        db.pending_received_stmt(user.id),
-        transformer=lambda rows: [_to_read(session, r) for r in rows],
+        friendship_service.list_pending_stmt(user.id),
+        transformer=lambda rows: [friendship_service.enrich_friendship(session, r) for r in rows],
     )
 
 
@@ -108,8 +76,8 @@ async def list_sent(
 ) -> Page[FriendshipRead]:
     return paginate(
         session,
-        db.sent_stmt(user.id),
-        transformer=lambda rows: [_to_read(session, r) for r in rows],
+        friendship_service.list_sent_stmt(user.id),
+        transformer=lambda rows: [friendship_service.enrich_friendship(session, r) for r in rows],
     )
 
 
@@ -121,13 +89,7 @@ async def accept_friendship(
     user: Annotated[User, Depends(require_permission("friendships", "write"))],
     session: Session = Depends(get_session),
 ) -> FriendshipRead:
-    friendship = _get_or_404(session, id)
-    if friendship.addressee_id != user.id:
-        raise HTTPException(status_code=403, detail="Only the recipient can accept a friend request")
-    if friendship.status != FriendshipStatus.PENDING:
-        raise HTTPException(status_code=409, detail="Friend request is not pending")
-    friendship = db.accept(session, friendship)
-    return _to_read(session, friendship)
+    return friendship_service.accept_friendship(session, user, id)
 
 
 @router.post("/{id}/decline")
@@ -138,13 +100,7 @@ async def decline_friendship(
     user: Annotated[User, Depends(require_permission("friendships", "write"))],
     session: Session = Depends(get_session),
 ) -> FriendshipRead:
-    friendship = _get_or_404(session, id)
-    if friendship.addressee_id != user.id:
-        raise HTTPException(status_code=403, detail="Only the recipient can decline a friend request")
-    if friendship.status != FriendshipStatus.PENDING:
-        raise HTTPException(status_code=409, detail="Friend request is not pending")
-    friendship = db.decline(session, friendship)
-    return _to_read(session, friendship)
+    return friendship_service.decline_friendship(session, user, id)
 
 
 @router.delete("/{id}")
@@ -155,16 +111,7 @@ async def remove_friendship(
     user: Annotated[User, Depends(require_permission("friendships", "delete"))],
     session: Session = Depends(get_session),
 ) -> dict[str, bool]:
-    friendship = _get_or_404(session, id)
-    if user.id not in (friendship.requester_id, friendship.addressee_id):
-        raise HTTPException(status_code=403, detail="Not a party to this friendship")
-    can_remove = (
-        friendship.status == FriendshipStatus.ACCEPTED
-        or (friendship.status == FriendshipStatus.PENDING and friendship.requester_id == user.id)
-    )
-    if not can_remove:
-        raise HTTPException(status_code=409, detail="Cannot remove this friendship")
-    db.remove(session, friendship)
+    friendship_service.remove_friendship(session, user, id)
     return {"ok": True}
 
 

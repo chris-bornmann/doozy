@@ -1,24 +1,23 @@
 
 from typing import Annotated, Optional, TypeVar
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
 from app.config import get_settings
 from app.rate_limit import limiter
-
-_settings = get_settings()
 from fastapi_pagination import Page
 from fastapi_pagination.customization import CustomizedPage, UseParamsFields
 from fastapi_pagination.ext.sqlalchemy import paginate
 from pydantic import BaseModel, Field
-from sqlalchemy import delete
-from sqlmodel import Session, select
+from sqlmodel import Session
 
 from app.security import oauth2_scheme
 from db.main import get_session
-from db.models import ItemTag, Tag, User
-from rbac.dependencies import get_user_roles, require_permission
-from rbac.enforcer import get_enforcer
+from db.models import Tag, User
+from rbac.dependencies import require_permission
+import services.tags as tag_service
 
+
+_settings = get_settings()
 
 router = APIRouter(
     prefix="/tags",
@@ -47,13 +46,7 @@ async def create_tag(
     data: TagForm,
     session: Session = Depends(get_session),
 ) -> Tag:
-    if session.exec(select(Tag).where(Tag.name == data.name)).first():
-        raise HTTPException(status_code=409, detail="Tag already exists")
-    tag = Tag(name=data.name, creator_id=user.id)
-    session.add(tag)
-    session.commit()
-    session.refresh(tag)
-    return tag
+    return tag_service.create_tag(session, user, data.name)
 
 
 @router.get('/')
@@ -64,10 +57,7 @@ async def list_tags(
     session: Session = Depends(get_session),
     match: Optional[str] = Query(default=None),
 ) -> CustomPage[Tag]:
-    stmt = select(Tag).order_by(Tag.name)
-    if match is not None:
-        stmt = stmt.where(Tag.name.contains(match))
-    return paginate(session, stmt)
+    return paginate(session, tag_service.list_tags_stmt(match))
 
 
 @router.delete('/{id}')
@@ -78,23 +68,5 @@ async def delete_tag(
     id: int,
     session: Session = Depends(get_session),
 ) -> dict[str, bool]:
-    tag = session.get(Tag, id)
-    if tag is None:
-        raise HTTPException(status_code=404, detail="Tag not found")
-
-    roles = get_user_roles(session, user.id)
-    enforcer = get_enforcer()
-    is_admin = any(enforcer.enforce(role, "item_tags", "xxx") for role in roles)
-
-    if is_admin:
-        # Admins can delete any tag; remove all item assignments first.
-        session.exec(delete(ItemTag).where(ItemTag.tag_id == id))
-    else:
-        if tag.creator_id != user.id:
-            raise HTTPException(status_code=403, detail="You can only delete tags you created")
-        if session.exec(select(ItemTag).where(ItemTag.tag_id == id)).first():
-            raise HTTPException(status_code=403, detail="Tag is assigned to one or more work items")
-
-    session.delete(tag)
-    session.commit()
+    tag_service.delete_tag(session, user, id)
     return {'ok': True}

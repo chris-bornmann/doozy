@@ -1,9 +1,24 @@
+# Overview
 
-# Initialize a new DB.
+The intention is to provide three layers:
+1. Routers - the FastAPI handlers.  In "src/routers".
+2. Business Logic - All the goofy domain specific chcks.  In "src/service".
+3. Database - Wrappers around DB calls.
+
+The lines are more fluid than I'd like.  For example,
+* Sometimes the busines logic does a bunch of database work.
+* Sometimes the business logic returns an HTTPException.
+* Sometimes the DB code performs business logic checks.
+
+Sue me.
+
+# Setup
+
+## Initialize a new DB.
 uv run python3 src/cli/main.py db create --seed
 uv run python3 src/cli/main.py db blitz
 
-# When using Postgres
+## When using Postgres
 psql -h db -p 5432 -U doozy
 \d : Show tables
 

@@ -7,7 +7,7 @@ from sqlmodel import Session
 from db.main import engine
 from db.users import get_by_username
 from db.verification import create_verification
-from routers.verification import send_verification_email
+from services.verification import send_verification_email
 from app.config import get_settings
 
 app = typer.Typer()

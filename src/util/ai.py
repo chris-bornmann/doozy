@@ -5,11 +5,15 @@ from datetime import date
 import anthropic
 import openai
 
+from app.config import get_settings
 from routers.forms import ItemFilter
 from constants import Priority, State
 from typing import Optional
 from datetime import datetime
 from pydantic import BaseModel, Field, field_validator
+
+
+_settings = get_settings()
 
 
 # TODO: Add completed_by.  Maybe group?
@@ -146,3 +150,13 @@ class AI:
         except json.JSONDecodeError:
             raise ValueError(f"AI returned an unparseable response: {raw!r}")
         return AIResponse(**parsed)
+
+
+def get_ai_facade() -> AI:
+
+    """Dependency to provide an AI facade instance with configured API keys."""
+
+    return AI(
+        anthropic_api_key=_settings.ANTHROPIC_API_KEY,
+        openai_api_key=_settings.OPENAI_API_KEY or ""
+    )

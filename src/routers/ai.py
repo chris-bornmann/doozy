@@ -1,6 +1,6 @@
 
 import logging
-from typing import Annotated, Optional
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from app.rate_limit import limiter
@@ -9,11 +9,11 @@ from sqlmodel import Session
 
 from app.config import get_settings
 from app.security import oauth2_scheme
-from db.items import create_item, delete_item, find, get, update
 from db.main import get_session
-from db.models import Item, User
+from db.models import User
 from rbac.dependencies import require_permission
-from util.ai import AI, AIResponse
+from util.ai import AI, AIResponse, get_ai_facade
+import services.ai as ai_service
 
 
 logger = logging.getLogger(__name__)
@@ -31,53 +31,6 @@ class AIRequest(BaseModel):
     request: str
 
 
-def get_ai_facade() -> AI:
-    """Dependency to provide an AI facade instance with configured API keys."""
-    return AI(
-        anthropic_api_key=_settings.ANTHROPIC_API_KEY,
-        openai_api_key=_settings.OPENAI_API_KEY or ""
-    )
-
-
-def _handle_ai_response(
-    user: User,
-    resp: AIResponse,
-    session: Annotated[Session, Depends(get_session)]) -> AIResponse:
-
-    item: Optional[Item] = None
-    match resp.operation:
-        case "create":
-            create_item(session, user.id, **resp.fields.model_dump(exclude_unset=True, exclude_none=True))
-        case "update":
-            if resp.item_id:
-                item = get(session, resp.item_id)
-                if item is not None and item.creator_id != user.id:
-                    item = None
-            elif resp.fields.name is not None:
-                item = find(session, resp.fields.name, user.id)
-            if item is not None:
-                update(session, item, resp.fields.model_dump(exclude_unset=True, exclude_none=True))
-            else:
-                resp.error = "Item to update not found"
-        case "delete":
-            if resp.item_id:
-                item = get(session, resp.item_id)
-                if item is not None and item.creator_id != user.id:
-                    item = None
-            elif resp.fields.name is not None:
-                item = find(session, resp.fields.name, user.id)
-            if item is not None:
-                delete_item(session, item)
-            else:
-                resp.error = "Item to delete not found"
-        case "list":
-            pass  # filter is carried in resp.filter; browser calls /items/search
-        case _:
-            resp.error = f"Unsupported operation: {resp.operation}"
-
-    return resp
-
-
 @router.post('/request')
 @limiter.limit(_settings.RATE_LIMIT_AI)
 async def ai_request(
@@ -93,8 +46,7 @@ async def ai_request(
         resp: AIResponse = ai.parse_item_request(data.request)
         if resp.error:
             return resp
-        return _handle_ai_response(user, resp, session)
-
+        return ai_service.handle_ai_response(user, resp, session)
     except ValueError as exc:
         print(str(exc))
         raise HTTPException(status_code=502, detail=str(exc))
@@ -129,6 +81,6 @@ async def ai_voice_request(
         resp.transcript = transcript
         if resp.error:
             return resp
-        return _handle_ai_response(user, resp, session)
+        return ai_service.handle_ai_response(user, resp, session)
     except ValueError as exc:
         raise HTTPException(status_code=502, detail=str(exc))

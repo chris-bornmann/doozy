@@ -4,24 +4,18 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from app.rate_limit import limiter
 from fastapi_pagination import Page
+from fastapi_pagination.ext.sqlalchemy import paginate
 
 from sqlmodel import Session
-from sqlalchemy import select
-from fastapi_pagination.ext.sqlalchemy import paginate
 
 from app.config import get_settings
 from app.security import oauth2_scheme
-
-from constants import UserState
 from db.main import get_session
 from db.models import Item, User, UserNoSecret
-from db.users import get, get_by_username
 from rbac.dependencies import require_permission
-from rbac.roles import assign_role
-from db.verification import create_verification
-from routers.forms import User as UserForm
-from routers.verification import send_verification_email
-from util.security import get_current_user, get_password_hash
+from schemas import UserForm
+from util.security import get_current_user
+import services.users as user_service
 
 
 _settings = get_settings()
@@ -33,7 +27,6 @@ router = APIRouter(
     dependencies=[Depends(oauth2_scheme)],
     responses={404: {"description": "Not found"}},
 )
-
 
 # Public router — no auth required (e.g. registration)
 public_router = APIRouter(
@@ -59,7 +52,7 @@ async def read_users(
     user: User = Depends(require_permission("users", "read")),
     session: Session = Depends(get_session),
 ) -> Page[UserNoSecret]:
-    return paginate(session, select(User),
+    return paginate(session, user_service.list_users_stmt(),
                     transformer=lambda users: [UserNoSecret(**u.model_dump()) for u in users])
 
 
@@ -77,13 +70,11 @@ async def read_user_me(
 async def read_user(
     request: Request,
     id: int,
-    user: User = Depends(require_permission("users", "read")),
+    current_user: User = Depends(require_permission("users", "read")),
     session: Session = Depends(get_session),
 ) -> UserNoSecret:
-    user = get(session, id)
-    if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    return UserNoSecret(**user.model_dump())
+    target = user_service.get_user(session, id)
+    return UserNoSecret(**target.model_dump())
 
 
 @public_router.post('/')
@@ -93,25 +84,7 @@ async def create_user(
     data: UserForm,
     session: Session = Depends(get_session),
 ) -> UserNoSecret:
-    if get_by_username(session, data.username):
-        raise HTTPException(status_code=409, detail="Username already exists")
-    user = User(
-        username=data.username,
-        full_name=data.full_name,
-        password=get_password_hash(data.password),
-        state=UserState.NEW,
-    )
-    session.add(user)
-    session.commit()
-    session.refresh(user)
-    assign_role(session, user.id, "user")
-
-    raw_token = create_verification(session, user.id, _settings.VERIFICATION_EXPIRE_MINUTES)
-    try:
-        await send_verification_email(user, raw_token)
-    except Exception:
-        pass  # email failure is non-fatal; user can request a resend later
-
+    user = await user_service.create_user(session, data)
     return UserNoSecret(**user.model_dump())
 
 
@@ -120,10 +93,10 @@ async def create_user(
 async def read_user_items(
     request: Request,
     id: int,
-    user: User = Depends(require_permission("users", "read")),
+    current_user: User = Depends(require_permission("users", "read")),
     session: Session = Depends(get_session),
 ) -> Page[Item]:
-    return paginate(session, select(Item).where(Item.creator_id == id))
+    return paginate(session, user_service.get_user_items_stmt(id))
 
 
 @router.options('/')
