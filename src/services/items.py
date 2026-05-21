@@ -2,7 +2,6 @@ import datetime as dt
 from typing import Optional
 
 import sqlalchemy as sa
-from fastapi import HTTPException
 from sqlalchemy import asc, desc, nulls_last, nullsfirst, and_
 from sqlmodel import Session, select
 
@@ -13,6 +12,7 @@ from db import items as db_items
 from db.item_orders import move_item
 from db.models import GroupMember, Item, ItemOwnership, ItemTag, Tag, User, UserItemOrder
 from db.users import get_by_username
+from exceptions import DoozyForbiddenError, DoozyNotFoundError
 from schemas import ItemFilter, ItemRead
 
 
@@ -74,16 +74,36 @@ def can_see(session: Session, user_id: int, item: Item, ownership: ItemOwnership
     return False
 
 
+def _get_owned_item(
+    session: Session,
+    user: User,
+    item_id: int,
+    action: str,
+) -> tuple[Item, ItemOwnership]:
+    """Fetch item+ownership and assert the current user is the owner.
+
+    Raises DoozyNotFoundError if the item doesn't exist, DoozyForbiddenError if
+    the user is not the owner.
+    """
+    item = db_items.get(session, item_id)
+    if item is None:
+        raise DoozyNotFoundError("Item not found")
+    ownership = db_items.get_ownership(session, item_id)
+    if ownership is None or ownership.user_id != user.id:
+        raise DoozyForbiddenError(f"Only the owner can {action}")
+    return item, ownership
+
+
 def get_item(session: Session, user: User, item_id: int) -> tuple[Item, ItemOwnership]:
     """Fetch an item and verify the user can see it. Raises 404/403 if not."""
     item = db_items.get(session, item_id)
     if item is None:
-        raise HTTPException(status_code=404, detail="Item not found")
+        raise DoozyNotFoundError("Item not found")
     ownership = db_items.get_ownership(session, item_id)
     if ownership is None:
-        raise HTTPException(status_code=404, detail="Item not found")
+        raise DoozyNotFoundError("Item not found")
     if not can_see(session, user.id, item, ownership):
-        raise HTTPException(status_code=403, detail="Access denied")
+        raise DoozyForbiddenError("Access denied")
     return item, ownership
 
 
@@ -173,93 +193,63 @@ def create_item(session: Session, user: User, data) -> int:
 
 def update_item(session: Session, user: User, item_id: int, changes: dict) -> ItemRead:
     """Update an item. Only the owner may modify."""
-    item = db_items.get(session, item_id)
-    if item is None:
-        raise HTTPException(status_code=404, detail="Item not found")
-    ownership = db_items.get_ownership(session, item_id)
-    if ownership is None or ownership.user_id != user.id:
-        raise HTTPException(status_code=403, detail="Only the owner can modify this item")
+    item, ownership = _get_owned_item(session, user, item_id, "modify this item")
     updated = db_items.update(session, item, changes, user_id=user.id)
     return enrich_items(session, [updated])[0]
 
 
 def delete_item(session: Session, user: User, item_id: int) -> None:
     """Delete an item. Only the owner may delete."""
-    item = db_items.get(session, item_id)
-    if item is None:
-        raise HTTPException(status_code=404, detail="Item not found")
-    ownership = db_items.get_ownership(session, item_id)
-    if ownership is None or ownership.user_id != user.id:
-        raise HTTPException(status_code=403, detail="Only the owner can delete this item")
+    item, ownership = _get_owned_item(session, user, item_id, "delete this item")
     db_items.delete_item(session, item)
 
 
 def reorder_item(session: Session, user: User, item_id: int, after_id: Optional[int]):
     """Reorder an item. User must be able to see both the item and the after_id item."""
-    item = db_items.get(session, item_id)
-    if item is None:
-        raise HTTPException(status_code=404, detail="Item not found")
-    ownership = db_items.get_ownership(session, item_id)
-    if ownership is None or not can_see(session, user.id, item, ownership):
-        raise HTTPException(status_code=403, detail="Access denied")
+    get_item(session, user, item_id)
 
     if after_id is not None:
         after_item = db_items.get(session, after_id)
         if after_item is None:
-            raise HTTPException(status_code=404, detail="after_id item not found")
+            raise DoozyNotFoundError("after_id item not found")
         after_ownership = db_items.get_ownership(session, after_id)
         if after_ownership is None or not can_see(session, user.id, after_item, after_ownership):
-            raise HTTPException(status_code=403, detail="after_id item not visible to user")
+            raise DoozyForbiddenError("after_id item not visible to user")
 
     return move_item(session, user.id, item_id, after_id)
 
 
 def assign_to_user(session: Session, user: User, item_id: int, username: str) -> None:
     """Transfer item ownership to another user. Must be friends unless transferring to self."""
-    item = db_items.get(session, item_id)
-    if item is None:
-        raise HTTPException(status_code=404, detail="Item not found")
-    ownership = db_items.get_ownership(session, item_id)
-    if ownership is None or ownership.user_id != user.id:
-        raise HTTPException(status_code=403, detail="Only the owner can transfer ownership")
+    item, ownership = _get_owned_item(session, user, item_id, "transfer ownership")
     target = get_by_username(session, username)
     if target is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise DoozyNotFoundError("User not found")
 
     if target.id != user.id:
         friendship = db_friends.get_between(session, user.id, target.id)
         if friendship is None or friendship.status != FriendshipStatus.ACCEPTED:
-            raise HTTPException(status_code=403, detail="You can only transfer ownership to a friend")
+            raise DoozyForbiddenError("You can only transfer ownership to a friend")
 
     if ownership.group_id is not None:
         if db_groups.get_member(session, ownership.group_id, target.id) is None:
-            raise HTTPException(status_code=403, detail="New owner must be a member of the item's group")
+            raise DoozyForbiddenError("New owner must be a member of the item's group")
 
     db_items.set_ownership_user(session, ownership, target.id)
 
 
 def assign_to_group(session: Session, user: User, item_id: int, group_id: int) -> None:
     """Assign an item to a group. User must be the owner and a group member."""
-    item = db_items.get(session, item_id)
-    if item is None:
-        raise HTTPException(status_code=404, detail="Item not found")
-    ownership = db_items.get_ownership(session, item_id)
-    if ownership is None or ownership.user_id != user.id:
-        raise HTTPException(status_code=403, detail="Only the owner can assign a group")
+    item, ownership = _get_owned_item(session, user, item_id, "assign a group")
     group = db_groups.get(session, group_id)
     if group is None:
-        raise HTTPException(status_code=404, detail="Group not found")
+        raise DoozyNotFoundError("Group not found")
     if db_groups.get_member(session, group_id, user.id) is None:
-        raise HTTPException(status_code=403, detail="You are not a member of that group")
+        raise DoozyForbiddenError("You are not a member of that group")
     db_items.set_ownership_group(session, ownership, group_id)
 
 
 def unassign_group(session: Session, user: User, item_id: int) -> None:
     """Remove a group assignment from an item. User must be the owner."""
-    item = db_items.get(session, item_id)
-    if item is None:
-        raise HTTPException(status_code=404, detail="Item not found")
-    ownership = db_items.get_ownership(session, item_id)
-    if ownership is None or ownership.user_id != user.id:
-        raise HTTPException(status_code=403, detail="Only the owner can unassign the group")
+    item, ownership = _get_owned_item(session, user, item_id, "unassign the group")
     db_items.clear_ownership_group(session, ownership)

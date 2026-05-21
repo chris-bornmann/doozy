@@ -1,6 +1,5 @@
 
 from sqlalchemy import exc
-from fastapi import HTTPException
 from sqlmodel import Session
 
 from constants import FriendshipStatus
@@ -8,6 +7,7 @@ from db import friendships as db_friends
 from db import groups as db
 from db.models import Group, User
 from db.users import get as get_user, get_by_username
+from exceptions import DoozyConflictError, DoozyForbiddenError, DoozyNotFoundError
 from schemas import GroupRead
 
 
@@ -34,7 +34,7 @@ def create_group(session: Session, user: User, name: str) -> GroupRead:
     try:
         group = db.create(session, name=name, owner_id=user.id)
     except exc.IntegrityError:
-        raise HTTPException(status_code=409, detail="A group with that name already exists")
+        raise DoozyConflictError("A group with that name already exists")
     return enrich_group(session, group)
 
 
@@ -42,9 +42,9 @@ def get_group(session: Session, user: User, group_id: int) -> GroupRead:
     """Fetch a group. User must be a member."""
     group = db.get(session, group_id)
     if group is None:
-        raise HTTPException(status_code=404, detail="Group not found")
+        raise DoozyNotFoundError("Group not found")
     if db.get_member(session, group_id, user.id) is None:
-        raise HTTPException(status_code=403, detail="Not a member of this group")
+        raise DoozyForbiddenError("Not a member of this group")
     return enrich_group(session, group)
 
 
@@ -52,9 +52,9 @@ def delete_group(session: Session, user: User, group_id: int) -> None:
     """Delete a group. Only the owner can delete."""
     group = db.get(session, group_id)
     if group is None:
-        raise HTTPException(status_code=404, detail="Group not found")
+        raise DoozyNotFoundError("Group not found")
     if group.owner_id != user.id:
-        raise HTTPException(status_code=403, detail="Only the owner can delete a group")
+        raise DoozyForbiddenError("Only the owner can delete a group")
     db.delete(session, group)
 
 
@@ -62,17 +62,17 @@ def add_member(session: Session, user: User, group_id: int, target_username: str
     """Add a member to a group. Owner only; target must be an accepted friend."""
     group = db.get(session, group_id)
     if group is None:
-        raise HTTPException(status_code=404, detail="Group not found")
+        raise DoozyNotFoundError("Group not found")
     if group.owner_id != user.id:
-        raise HTTPException(status_code=403, detail="Only the owner can add members")
+        raise DoozyForbiddenError("Only the owner can add members")
     target = get_by_username(session, target_username)
     if target is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise DoozyNotFoundError("User not found")
     if db.get_member(session, group_id, target.id) is not None:
-        raise HTTPException(status_code=409, detail="User is already a member of this group")
+        raise DoozyConflictError("User is already a member of this group")
     friendship = db_friends.get_between(session, user.id, target.id)
     if friendship is None or friendship.status != FriendshipStatus.ACCEPTED:
-        raise HTTPException(status_code=403, detail="You can only add friends to a group")
+        raise DoozyForbiddenError("You can only add friends to a group")
     db.add_member(session, group_id, target.id)
     return enrich_group(session, group)
 
@@ -81,15 +81,15 @@ def remove_member(session: Session, user: User, group_id: int, target_username: 
     """Remove a member from a group. Owner only; cannot remove self."""
     group = db.get(session, group_id)
     if group is None:
-        raise HTTPException(status_code=404, detail="Group not found")
+        raise DoozyNotFoundError("Group not found")
     if group.owner_id != user.id:
-        raise HTTPException(status_code=403, detail="Only the owner can remove members")
+        raise DoozyForbiddenError("Only the owner can remove members")
     target = get_by_username(session, target_username)
     if target is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise DoozyNotFoundError("User not found")
     if target.id == group.owner_id:
-        raise HTTPException(status_code=409, detail="The owner cannot be removed from their own group")
+        raise DoozyConflictError("The owner cannot be removed from their own group")
     gm = db.get_member(session, group_id, target.id)
     if gm is None:
-        raise HTTPException(status_code=404, detail="User is not a member of this group")
+        raise DoozyNotFoundError("User is not a member of this group")
     db.remove_member(session, gm)
