@@ -1,16 +1,19 @@
 
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any, Optional, Union
+from typing import Annotated, Any, Optional, Union
 
 import jwt
 
+from fastapi import Depends, HTTPException, status
 from jwt.exceptions import InvalidTokenError, ExpiredSignatureError
 from pwdlib import PasswordHash
 from pydantic import BaseModel
 from sqlmodel import Session
 
 from app.config import get_settings
+from app.security import oauth2_scheme
+from db.main import get_session
 from db.models import User
 from db.users import get_by_username
 
@@ -77,6 +80,37 @@ def authenticate_user(
         return None
     if not verify_password(password, user.password):
         return None
+
+    return user
+
+
+async def get_current_user(
+    token: Annotated[str, Depends(oauth2_scheme)],
+    session: Session = Depends(get_session),
+) -> User:
+    data = decode_token(token)
+    if data.get('error'):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f'Invalid authentication credentials: {data['error']}',
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    username = data.get('sub')
+    if username is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials: missing sub",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    user = get_by_username(session, username)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     return user
 

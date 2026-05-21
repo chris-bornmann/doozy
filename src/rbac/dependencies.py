@@ -6,7 +6,7 @@ from sqlmodel import Session, select
 from db.main import get_session
 from db.models import User, UserRole
 from rbac.enforcer import get_enforcer
-from routers.users import get_current_user
+from util.security import get_current_user
 
 
 def get_user_roles(session: Session, user_id: int) -> list[str]:
