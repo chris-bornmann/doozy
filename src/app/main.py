@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 from typing import Annotated, Any
 
+import aiosmtplib
 import logfire
 import uvicorn
 
@@ -106,6 +107,16 @@ async def _handle_conflict(request: Request, exc: DoozyConflictError) -> JSONRes
 async def _handle_bad_request(request: Request, exc: DoozyBadRequestError) -> JSONResponse:
     return JSONResponse(status_code=400, content={"detail": exc.detail})
 
+
+@app.exception_handler(aiosmtplib.SMTPException)
+async def _smtp_exception_handler(request: Request, exc: aiosmtplib.SMTPException) -> JSONResponse:
+    return JSONResponse(
+        status_code=502,
+        # They can't actually try again later, because the user was created...
+        content={"detail": "Failed to send verification email. Please try again later."},
+    )
+
+
 app.add_middleware(LoggingMiddleware, file_name="/tmp/doozy.log")
 app.add_middleware(TimingMiddleware)
 app.add_middleware(SlowAPIMiddleware)
@@ -174,7 +185,7 @@ async def login(
     return Token(access_token=access_token, token_type="bearer")
 
 
-# oauth2 endpoints for Google ------------------------------------------------
+# oauth2 endpoints for Google
 @app.get("/login/google")
 @limiter.limit(_settings.RATE_LIMIT_AUTH)
 async def login_google(request: Request):

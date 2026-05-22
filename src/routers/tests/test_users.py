@@ -1,4 +1,7 @@
+import aiosmtplib
+import pytest
 from sqlmodel import Session
+from unittest.mock import AsyncMock, patch
 
 from db.users import create_user
 from rbac.roles import get_roles
@@ -21,6 +24,19 @@ def test_create_user_assigns_user_role(client, session):
     assert response.status_code == 200
     user_id = response.json()["id"]
     assert "user" in get_roles(session, user_id)
+
+
+def test_create_user_smtp_failure_returns_502(client):
+    with patch(
+        "services.verification.send_verification_email",
+        new=AsyncMock(side_effect=aiosmtplib.SMTPException("connection refused")),
+    ):
+        response = client.post("/users/", json={
+            "username": "smtpfailuser",
+            "password": "password1234",
+            "full_name": None,
+        })
+    assert response.status_code == 502
 
 
 def test_read_users_returns_list(auth_headers):

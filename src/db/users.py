@@ -37,6 +37,7 @@ def create_user(
     username: str,
     password: str,
     full_name: Optional[str] = None,
+    state: UserState = UserState.NEW,
 ) -> User:
     """Create and persist a new user.
 
@@ -45,7 +46,7 @@ def create_user(
     """
     from util.security import get_password_hash
 
-    user = User(username=username, password=get_password_hash(password))
+    user = User(username=username, password=get_password_hash(password), state=state)
     if full_name:
         user.full_name = full_name
 
