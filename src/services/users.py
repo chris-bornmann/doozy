@@ -2,15 +2,12 @@
 from sqlmodel import Session, select
 
 from app.config import get_settings
-from constants import UserState
 from db import users as db_users
 from db.models import Item, User
 from db.users import get_by_username
 from db.verification import create_verification
 from exceptions import DoozyConflictError
-from rbac.roles import assign_role
 from schemas import UserForm
-from util.security import get_password_hash
 
 
 _settings = get_settings()
@@ -42,21 +39,9 @@ async def create_user(session: Session, data: UserForm) -> User:
     if get_by_username(session, data.username):
         raise DoozyConflictError("Username already exists")
 
-    user = User(
-        username=data.username,
-        full_name=data.full_name,
-        password=get_password_hash(data.password),
-        state=UserState.NEW,
-    )
-    session.add(user)
-    session.commit()
-    session.refresh(user)
-    assign_role(session, user.id, "user")
+    user = db_users.create_user(session, data.username, data.password, data.full_name)
 
     raw_token = create_verification(session, user.id, _settings.VERIFICATION_EXPIRE_MINUTES)
-    try:
-        await send_verification_email(user, raw_token)
-    except Exception:
-        pass  # email failure is non-fatal; user can request a resend later
+    await send_verification_email(user, raw_token)
 
     return user

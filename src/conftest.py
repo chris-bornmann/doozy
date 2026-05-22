@@ -15,6 +15,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import SQLModel, Session, create_engine
 from sqlmodel.pool import StaticPool
+from unittest.mock import AsyncMock, patch
 
 from app.main import app
 from db.main import get_session
@@ -29,6 +30,17 @@ def reset_rate_limiter():
     from app.rate_limit import limiter
     limiter._storage.reset()
     yield
+
+
+@pytest.fixture(autouse=True)
+def mock_send_verification_email():
+    """Prevent real SMTP calls in every test. Tests that need to assert on email
+    behaviour can override this fixture or use their own patch."""
+    with patch(
+        "aiosmtplib.send",
+        new=AsyncMock(return_value=None),
+    ):
+        yield
 
 
 @pytest.fixture(name="session")

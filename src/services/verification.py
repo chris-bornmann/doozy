@@ -51,7 +51,7 @@ async def send_verification_email(user: User, raw_token: str) -> None:
             tls_context=tls_context,
             validate_certs=_settings.SMTP_VALIDATE_CERTS,
         )
-    except Exception:
+    except aiosmtplib.SMTPException:
         logger.exception("Failed to send verification email to %s", user.username)
         raise
 
