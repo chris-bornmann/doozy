@@ -228,10 +228,11 @@ async def login_google(request: Request):
         "response_type": "code",
         "scope": "openid email profile",
         "redirect_uri": redirect_uri,
-        # offline access allows us to refresh tokens, but not strictly
-        # necessary for a simple login flow.
-        "access_type": "offline",
-        "prompt": "consent",
+        # Deliberately no "access_type": "offline" or "prompt": "consent". We only
+        # read the user's email and name once, at sign-in, so we don't ask Google
+        # for a long-lived refresh token (one we'd never use but would have to
+        # protect), and returning users aren't shown the consent screen again.
+
         # Google returns this unchanged to /auth/google.
         "state": state,
     }
