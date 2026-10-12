@@ -16,6 +16,12 @@ def test_google_login_redirect(
     assert 'client_id=fakeid' in location
     # The GUI's state must be passed to Google so it comes back to /auth/google.
     assert parse_qs(urlsplit(location).query)['state'] == [VALID_STATE]
+    # Sign-in only needs the user's email and name once, so we must not ask
+    # Google for offline access (a refresh token) or force the consent screen.
+    query = parse_qs(urlsplit(location).query)
+    assert 'access_type' not in query
+    assert 'prompt' not in query
+    assert query['scope'] == ['openid email profile']
 
 
 def test_google_login_requires_state(

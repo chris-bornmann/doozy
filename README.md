@@ -121,16 +121,24 @@ uv run fastapi dev src/app/main.py
 1. Obtain client credentials from the Google API console and set
    ``GOOGLE_CLIENT_ID`` and ``GOOGLE_CLIENT_SECRET`` in your environment or
    in the project's ``.env`` file.
-2. Start the server (see above) and visit ``http://localhost:8000/login/google``
-   in a browser; the application will redirect you to the Google sign‑in page.
-3. After authenticating with Google you'll be redirected back to
-   ``/auth/google`` and receive a JSON object containing
-   ``access_token``/``token_type`` that can be used with the standard
-   ``Authorization: Bearer ...`` header exactly the same as with the
-   username/password ``/token`` endpoint.
+2. Set ``GUI_URL`` to the web GUI's address (default ``http://localhost:5173/``)
+   and add the GUI's origin to ``CORS_ORIGINS`` (see *Configuration* below).
+3. Start the server and the GUI, and use "Continue with Google" on the GUI's
+   login page. The GUI generates a random ``state`` value and calls
+   ``/login/google?state=...``, which redirects to Google. Google sends the
+   user back to ``/auth/google``, which redirects to the GUI's
+   ``/auth/callback`` page with ``access_token``, ``token_type`` and the same
+   ``state`` in the URL fragment. The GUI accepts the token only if ``state``
+   matches the one it generated, which protects against login CSRF.
 
-For programmatic clients that obtain a Google authorization code separately
-(e.g. mobile apps) you can hit the ``/auth/google`` endpoint directly.
+``/login/google`` and ``/auth/google`` both return ``400`` without a valid
+``state`` (16–128 URL-safe characters), so visiting ``/login/google`` directly
+no longer works. Sign-in only requests the ``openid email profile`` scopes,
+with no offline access, so Google issues no long-lived refresh token.
+
+The resulting ``access_token`` is used with the standard
+``Authorization: Bearer ...`` header, exactly as with the username/password
+``/token`` endpoint.
 
 > **Error responses from `/token`**
 >
@@ -142,3 +150,27 @@ For programmatic clients that obtain a Google authorization code separately
 
 The rest of the API doesn't distinguish between Google accounts and regular
 users; both are issued the same JWTs on successful authentication.
+
+## Configuration: allowed browser origins (CORS)
+
+Browsers only let a web page call this API from JavaScript if the page's
+origin is listed in ``CORS_ORIGINS``. Each environment sets its own list, in
+its ``.env`` file (``.env`` locally, ``.env.compose`` for Docker Compose) or as
+an environment variable in production. The value is comma-separated:
+
+```
+# Production
+CORS_ORIGINS=https://doozy.example.com
+
+# Local development, plus access from another machine (e.g. over Tailscale)
+CORS_ORIGINS=http://localhost:5173,http://localhost:8080,http://100.104.51.111:5173
+```
+
+- Each entry is ``scheme://host[:port]`` with no path or trailing slash (CORS
+  compares origins exactly). The server refuses to start on a malformed entry,
+  and ``*`` is not allowed.
+- If ``CORS_ORIGINS`` is not set, only local development is allowed:
+  ``http://localhost:5173`` (Vite dev server) and ``http://localhost:8080``
+  (Docker Compose GUI).
+- Setting it *replaces* that default, so list every origin the environment needs.
+- The test suite sets its own value in ``src/conftest.py``.
