@@ -157,15 +157,10 @@ app.include_router(users.public_router)
 app.include_router(users.router)
 app.include_router(verification.router)
 
-# Define allowed origins.  Eventually this should include an actual
-# web hosted site where the GUI is served from.
-origins = [
-    "http://localhost:5173",  # Local dev/test.
-    "http://localhost:8080",  # Local docker (exposed nginx port is 8080).
-    "http://100.104.51.111:5173",  # Tailscale.
-]
-
-app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"], allow_headers=["Content-Type", "Authorization"])
+# Only the GUI's own origins may call the API from a browser. The list comes
+# from settings so each environment (dev, test, prod) can set its own; see
+# CORS_ORIGINS in app/config.py.
+app.add_middleware(CORSMiddleware, allow_origins=_settings.CORS_ORIGINS, allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"], allow_headers=["Content-Type", "Authorization"])
 
 # Permanent URLs too...
 app.include_router(items.router, prefix="/v1/items", tags=["items", "v1"])

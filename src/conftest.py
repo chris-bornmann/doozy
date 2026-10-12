@@ -10,6 +10,8 @@ os.environ.setdefault('ALGORITHM', 'HS256')
 os.environ.setdefault('DATABASE_URL', 'sqlite://')
 os.environ.setdefault('GOOGLE_CLIENT_ID', 'fakeid')
 os.environ.setdefault('GOOGLE_CLIENT_SECRET', 'fakesecret')
+# The test environment's own allowed CORS origin (see CORS_ORIGINS in app/config.py).
+os.environ.setdefault('CORS_ORIGINS', 'https://gui.test.example')
 
 import pytest
 from fastapi.testclient import TestClient
